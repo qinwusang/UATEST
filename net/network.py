@@ -42,7 +42,11 @@ class SwinJSCC(nn.Module):
         noisy_feature = self.channel.forward(feature, chan_param, avg_pwr)
         return noisy_feature
 
-    def forward(self, input_image, given_SNR=None, given_rate=None):
+
+
+
+
+    def forward(self, input_image, given_SNR=None, given_rate=None, mod_SNR=None):
         B, _, H, W = input_image.shape
 
         if H != self.H or W != self.W:
@@ -51,26 +55,45 @@ class SwinJSCC(nn.Module):
             self.H = H
             self.W = W
 
+        # 真实信道 SNR (用于加噪)
         if given_SNR is None:
             SNR = choice(self.multiple_snr)
             chan_param = SNR
         else:
             chan_param = given_SNR
 
+        # 估计信道 SNR (用于 Channel ModNet)
+        if mod_SNR is None:
+            mod_param = chan_param
+        else:
+            mod_param = mod_SNR
+
         if given_rate is None:
             channel_number = choice(self.channel_number)
         else:
             channel_number = given_rate
 
-        if self.model == 'SwinJSCC_w/o_SAandRA' or self.model == 'SwinJSCC_w/_SA':
+        if self.model == 'SwinJSCC_w/o_SAandRA':
+            # 无注意力机制，使用 chan_param 占位
             feature = self.encoder(input_image, chan_param, channel_number, self.model)
             CBR = feature.numel() / 2 / input_image.numel()
             if self.pass_channel:
                 noisy_feature = self.feature_pass_channel(feature, chan_param)
             else:
                 noisy_feature = feature
+            recon_image = self.decoder(noisy_feature, chan_param, self.model)
 
-        elif self.model == 'SwinJSCC_w/_RA' or self.model == 'SwinJSCC_w/_SAandRA':
+        elif self.model == 'SwinJSCC_w/_SA':
+            # 核心修改：Encoder/Decoder 使用 mod_param (估计SNR)，信道使用 chan_param (真实SNR)
+            feature = self.encoder(input_image, mod_param, channel_number, self.model)
+            CBR = feature.numel() / 2 / input_image.numel()
+            if self.pass_channel:
+                noisy_feature = self.feature_pass_channel(feature, chan_param)
+            else:
+                noisy_feature = feature
+            recon_image = self.decoder(noisy_feature, mod_param, self.model)
+
+        elif self.model == 'SwinJSCC_w/_RA':
             feature, mask = self.encoder(input_image, chan_param, channel_number, self.model)
             CBR = channel_number / (2 * 3 * 2 ** (self.downsample * 2))
             avg_pwr = torch.sum(feature ** 2) / mask.sum()
@@ -79,9 +102,69 @@ class SwinJSCC(nn.Module):
             else:
                 noisy_feature = feature
             noisy_feature = noisy_feature * mask
+            recon_image = self.decoder(noisy_feature, chan_param, self.model)
 
-        recon_image = self.decoder(noisy_feature, chan_param, self.model)
+        elif self.model == 'SwinJSCC_w/_SAandRA':
+            # 同样分离 mod_param 和 chan_param
+            feature, mask = self.encoder(input_image, mod_param, channel_number, self.model)
+            CBR = channel_number / (2 * 3 * 2 ** (self.downsample * 2))
+            avg_pwr = torch.sum(feature ** 2) / mask.sum()
+            if self.pass_channel:
+                noisy_feature = self.feature_pass_channel(feature, chan_param, avg_pwr)
+            else:
+                noisy_feature = feature
+            noisy_feature = noisy_feature * mask
+            recon_image = self.decoder(noisy_feature, mod_param, self.model)
+
         mse = self.squared_difference(input_image * 255., recon_image.clamp(0., 1.) * 255.)
         loss_G = self.distortion_loss.forward(input_image, recon_image.clamp(0., 1.))
+        
         return recon_image, CBR, chan_param, mse.mean(), loss_G.mean()
+
+
+
+
+
+    # def forward(self, input_image, given_SNR=None, given_rate=None):
+    #     B, _, H, W = input_image.shape
+
+    #     if H != self.H or W != self.W:
+    #         self.encoder.update_resolution(H, W)
+    #         self.decoder.update_resolution(H // (2 ** self.downsample), W // (2 ** self.downsample))
+    #         self.H = H
+    #         self.W = W
+
+    #     if given_SNR is None:
+    #         SNR = choice(self.multiple_snr)
+    #         chan_param = SNR
+    #     else:
+    #         chan_param = given_SNR
+
+    #     if given_rate is None:
+    #         channel_number = choice(self.channel_number)
+    #     else:
+    #         channel_number = given_rate
+
+    #     if self.model == 'SwinJSCC_w/o_SAandRA' or self.model == 'SwinJSCC_w/_SA':
+    #         feature = self.encoder(input_image, chan_param, channel_number, self.model)
+    #         CBR = feature.numel() / 2 / input_image.numel()
+    #         if self.pass_channel:
+    #             noisy_feature = self.feature_pass_channel(feature, chan_param)
+    #         else:
+    #             noisy_feature = feature
+
+    #     elif self.model == 'SwinJSCC_w/_RA' or self.model == 'SwinJSCC_w/_SAandRA':
+    #         feature, mask = self.encoder(input_image, chan_param, channel_number, self.model)
+    #         CBR = channel_number / (2 * 3 * 2 ** (self.downsample * 2))
+    #         avg_pwr = torch.sum(feature ** 2) / mask.sum()
+    #         if self.pass_channel:
+    #             noisy_feature = self.feature_pass_channel(feature, chan_param, avg_pwr)
+    #         else:
+    #             noisy_feature = feature
+    #         noisy_feature = noisy_feature * mask
+
+    #     recon_image = self.decoder(noisy_feature, chan_param, self.model)
+    #     mse = self.squared_difference(input_image * 255., recon_image.clamp(0., 1.) * 255.)
+    #     loss_G = self.distortion_loss.forward(input_image, recon_image.clamp(0., 1.))
+    #     return recon_image, CBR, chan_param, mse.mean(), loss_G.mean()
 

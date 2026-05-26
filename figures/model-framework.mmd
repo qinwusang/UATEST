@@ -1,0 +1,10 @@
+flowchart LR
+    X["Input image x"] --> Enc["SwinJSCC encoder<br/>Channel ModNet uses gamma_hat"]
+    Enc --> Z["Latent feature z"]
+    Z --> Ch["Physical AWGN channel<br/>noise uses gamma_true"]
+    Ch --> Y["Noisy feature y"]
+    Y --> Dec["SwinJSCC decoder<br/>Channel ModNet uses gamma_hat"]
+    Dec --> XH["Reconstruction x_hat"]
+    GT["True SNR gamma"] --> Ch
+    GH["Estimated SNR gamma_hat"] --> Enc
+    GH --> Dec

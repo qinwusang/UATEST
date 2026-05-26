@@ -1,0 +1,51 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+
+# Local environments and editor files
+.venv/
+venv/
+env/
+.env
+.vscode/
+.idea/
+
+# Training data, checkpoints, and generated artifacts
+checkpoint/
+dataset/
+history/
+mismatch_vis_cifar10/
+mismatch_vis_cifar10_original/
+mismatch_vis_cifar10_ua_delta3/
+mismatch_vis_hr/
+samples/
+models/
+
+# Logs and temporary outputs
+*.log
+run.log
+nohup.out
+*.tmp
+*.temp
+
+# Large model/data files
+*.model
+*.pth
+*.pt
+*.ckpt
+*.tar
+*.tar.gz
+*.zip
+
+# LaTeX build artifacts
+latex/*.aux
+latex/*.bbl
+latex/*.blg
+latex/*.fdb_latexmk
+latex/*.fls
+latex/*.log
+latex/*.out
+latex/*.pdf
+latex/*.synctex.gz

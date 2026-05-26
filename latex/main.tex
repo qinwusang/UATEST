@@ -1,0 +1,219 @@
+\documentclass[10pt,journal]{IEEEtran}
+
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{cite}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usepackage{xcolor}
+\usepackage{url}
+
+\input{generated_metrics}
+
+\title{Imperfect-CSI SwinJSCC: Robust Image Transmission Under SNR Mismatch}
+
+\author{Anonymous Authors%
+\thanks{This manuscript is a Communication Letters-style draft generated from the local SwinJSCC imperfect-CSI codebase and CIFAR10/AWGN/C=32 result files.}}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Adaptive neural joint source-channel coding improves image transmission by conditioning learned representations on channel quality, but existing SwinJSCC evaluation assumes that the SNR supplied to Channel ModNet equals the true physical SNR. This letter formulates an imperfect-CSI setting by decoupling the true channel SNR and the estimated modulation SNR. An uncertainty-aware training objective is introduced by perturbing the estimated SNR during training. CIFAR10/AWGN results show that the proposed training improves off-diagonal mismatch PSNR by 1.92 dB with only 0.09 dB average matched-SNR degradation.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Deep joint source-channel coding, imperfect CSI, semantic communications, SNR mismatch, SwinJSCC.
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+\IEEEPARstart{D}{eep} joint source-channel coding (Deep JSCC) directly maps source samples to channel symbols and avoids the rigid separation between compression and channel coding \cite{shannon1948mathematical,cover2006elements,bourtsoulatze2019deepjscc}. This end-to-end formulation is attractive for semantic communication systems, where reconstruction or task quality may be more relevant than bit-level recovery \cite{xie2020initial,xie2021semantic}. Recent image transmission systems further improve adaptability through feedback, bandwidth agility, OFDM transmission, attention modules, and nonlinear transform coding \cite{kurka2019deepjsccf,kurka2021bandwidth,yang2021ofdm,xu2022attention,dai2022ntscc}.
+
+SwinJSCC extends this line by using a Swin Transformer backbone and channel/rate modulation networks to adapt latent representations to different SNRs and channel bandwidth ratios \cite{yang2024swinjscc,liu2021swin}. Its adaptation mechanism, however, implicitly assumes perfect CSI: the SNR supplied to Channel ModNet is the same SNR that determines the physical channel noise. In practical links, CSI is estimated from pilots, feedback, or prediction, and the estimated SNR may deviate from the true SNR due to noise, delay, or mobility. Under this mismatch, an adaptive encoder may allocate features according to an incorrect channel condition.
+
+This letter studies SwinJSCC under imperfect CSI. The true channel SNR, denoted by $\gamma$, controls the AWGN corruption, while the estimated SNR, denoted by $\hat{\gamma}$, controls encoder and decoder modulation. The contributions are: 1) an imperfect-CSI SwinJSCC formulation that decouples physical and modulation SNRs without changing the Swin Transformer backbone; 2) an uncertainty-aware (UA) training objective based on bounded SNR estimation errors; and 3) a true-SNR by estimated-SNR mismatch evaluation protocol with heatmap, aggregate, and representative-case analyses.
+
+\section{System Model and Problem Formulation}
+
+Let $\mathbf{x}\in[0,1]^{3\times H\times W}$ be an input image. The encoder maps it to a real-valued latent tensor
+\begin{equation}
+\mathbf{z}=F_{\theta}(\mathbf{x},\hat{\gamma},C),
+\label{eq:encoder}
+\end{equation}
+where $\theta$ denotes trainable parameters, $C$ is the bottleneck dimension, and $\hat{\gamma}$ is the SNR used by Channel ModNet. The implementation normalizes the real latent tensor before real-to-complex pairing. Let adjacent real components be paired into $s_k=z_{2k-1}+jz_{2k}$. With unit average complex transmit power,
+\begin{equation}
+\mathbf{s}=\frac{\mathbf{z}_{\rm pair}}{\sqrt{2\mathbb{E}[\mathbf{z}^{2}]}}.
+\label{eq:power_norm}
+\end{equation}
+The factor of two follows from pairing two real latent components into one complex symbol.
+
+For an AWGN channel with true SNR $\gamma$, the received symbol is
+\begin{equation}
+\mathbf{y}=\mathbf{s}+\mathbf{n},\qquad
+\mathbf{n}=\mathbf{n}_{\rm R}+j\mathbf{n}_{\rm I},
+\label{eq:awgn}
+\end{equation}
+where
+\begin{equation}
+\mathbf{n}_{\rm R},\mathbf{n}_{\rm I}\sim
+\mathcal{N}\!\left(0,\sigma_{\rm R}^{2}\mathbf{I}\right),\qquad
+\sigma_{\rm R}^{2}=\frac{1}{2\cdot10^{\gamma/10}}.
+\label{eq:sigma}
+\end{equation}
+Equivalently, the total complex noise power is $1/10^{\gamma/10}$. The decoder reconstructs the image as
+\begin{equation}
+\hat{\mathbf{x}}=G_{\theta}(\mathbf{y},\hat{\gamma}).
+\label{eq:decoder}
+\end{equation}
+
+The original adaptive SwinJSCC evaluation assumes
+\begin{equation}
+\hat{\gamma}=\gamma,
+\label{eq:perfect_csi}
+\end{equation}
+and therefore optimizes the perfect-CSI risk
+\begin{equation}
+\mathcal{R}_{\rm p}(\theta)=
+\mathbb{E}_{\mathbf{x},\gamma}
+\!\left[
+d\!\left(G_{\theta}(T_{\gamma}(F_{\theta}(\mathbf{x},\gamma,C)),\gamma),\mathbf{x}\right)
+\right],
+\label{eq:risk_perfect}
+\end{equation}
+where $T_{\gamma}(\cdot)$ denotes channel corruption and $d(\cdot,\cdot)$ is the reconstruction distortion.
+
+Under imperfect CSI, the modulation SNR is modeled as
+\begin{equation}
+\hat{\gamma}=\mathrm{clip}(\gamma+e,\gamma_{\min},\gamma_{\max}),
+\label{eq:mismatch_model}
+\end{equation}
+where $e$ is the SNR estimation error. The deployment risk becomes
+\begin{equation}
+\mathcal{R}_{\rm imp}(\theta)=
+\mathbb{E}_{\mathbf{x},\gamma,e}
+\!\left[
+d\!\left(G_{\theta}(T_{\gamma}(F_{\theta}(\mathbf{x},\hat{\gamma},C)),\hat{\gamma}),\mathbf{x}\right)
+\right].
+\label{eq:risk_imperfect}
+\end{equation}
+If $\Pr(e\ne0)>0$, \eqref{eq:risk_perfect} is a degenerate special case of \eqref{eq:risk_imperfect} rather than the correct deployment objective.
+
+\input{figures/fig1_framework}
+
+\section{Imperfect-CSI SwinJSCC}
+
+The proposed implementation keeps the original SwinJSCC encoder, decoder, and Channel ModNet. The only functional change is to separate the SNR argument into two roles: $\gamma$ is sent to the physical channel, while $\hat{\gamma}$ is sent to the encoder and decoder modulation branches. Setting $\hat{\gamma}=\gamma$ recovers the original inference path.
+
+UA training samples a true SNR from the configured training set and perturbs the estimated SNR:
+\begin{equation}
+\gamma\sim\mathcal{S},\qquad
+e\sim\mathcal{U}[-\Delta,\Delta],\qquad
+\hat{\gamma}=\mathrm{clip}(\gamma+e,\gamma_{\min},\gamma_{\max}).
+\label{eq:ua_sampling}
+\end{equation}
+For a mini-batch $\mathcal{B}$, the empirical objective is
+\begin{equation}
+\widehat{\mathcal{R}}_{\rm UA}(\theta)=
+\frac{1}{|\mathcal{B}|}
+\sum_{\mathbf{x}_i\in\mathcal{B}}
+d\!\left(G_{\theta}(T_{\gamma_i}(F_{\theta}(\mathbf{x}_i,\hat{\gamma}_i,C)),\hat{\gamma}_i),\mathbf{x}_i\right).
+\label{eq:ua_risk}
+\end{equation}
+When $\Delta=0$, \eqref{eq:ua_risk} collapses to perfect-CSI training. When $\Delta>0$, the model is optimized over a local neighborhood of estimated channel states.
+
+The objective can be interpreted as local risk smoothing over the estimated CSI input. Define
+\begin{equation}
+H_{\theta}(\mathbf{x},\gamma,e)=
+G_{\theta}(T_{\gamma}(F_{\theta}(\mathbf{x},\gamma+e,C)),\gamma+e).
+\label{eq:h_def}
+\end{equation}
+If $H_{\theta}$ and $d$ are locally Lipschitz with respect to $e$, there exists $K_{\theta}$ such that
+\begin{equation}
+\left|d(H_{\theta}(\mathbf{x},\gamma,e),\mathbf{x})
+-d(H_{\theta}(\mathbf{x},\gamma,0),\mathbf{x})\right|
+\le K_{\theta}|e|.
+\label{eq:lipschitz}
+\end{equation}
+This bound does not prove pointwise superiority for every $(\gamma,\hat{\gamma})$. It shows that the UA objective is statistically aligned with an imperfect-CSI deployment distribution, whereas perfect-CSI training controls only the point $e=0$.
+
+\section{Experimental Results}
+
+The experiments use CIFAR10 over an AWGN channel with $C=32$. The true and estimated SNR values are both selected from $\mathcal{S}=\{1,4,7,10,13\}$ dB. The baseline is the original SwinJSCC \texttt{w/SA} CIFAR10/AWGN/C32 checkpoint. The UA model uses the same architecture and is initialized from the corresponding original checkpoint. The reported UA result uses $\Delta=3$ dB, $\gamma_{\min}=1$ dB, and $\gamma_{\max}=13$ dB. Training uses batch size 256, Adam optimizer, learning rate $10^{-4}$, and random seed 42.
+
+The distortion metrics are PSNR, MS-SSIM, and MS-SSIM(dB):
+\begin{equation}
+\mathrm{PSNR}=10\log_{10}\frac{255^2}{\mathrm{MSE}},
+\label{eq:psnr}
+\end{equation}
+\begin{equation}
+\mathrm{MS\text{-}SSIM}_{\rm dB}
+=-10\log_{10}(1-\mathrm{MS\text{-}SSIM}).
+\label{eq:msssimdb}
+\end{equation}
+To quantify imperfect-CSI robustness, define a mismatch matrix
+\begin{equation}
+\mathbf{P}_{i,j}=\mathrm{PSNR}(\gamma_i,\hat{\gamma}_j),
+\label{eq:mismatch_matrix}
+\end{equation}
+where diagonal entries correspond to matched CSI and off-diagonal entries correspond to SNR mismatch. The off-diagonal average is
+\begin{equation}
+\overline{P}_{\rm off}=
+\frac{1}{N(N-1)}\sum_{i\ne j}\mathbf{P}_{i,j}.
+\label{eq:offdiag}
+\end{equation}
+
+\input{figures/fig2_mismatch_heatmaps}
+
+Fig.~\ref{fig:mismatch-heatmaps} shows that the original model degrades sharply when a poor physical channel is overestimated, while UA training reduces much of the off-diagonal loss. Table~\ref{tab:aggregate} reports the main aggregate results. UA training improves the off-diagonal average PSNR from \OrigOffPSNR{} dB to \UAOffPSNR{} dB, giving a gain of \GainOffPSNR{} dB. The diagonal average changes from \OrigDiagPSNR{} dB to \UADiagPSNR{} dB, a reduction of only 0.0917 dB. The off-diagonal MS-SSIM gain is \GainOffMSSSIM{}.
+
+\begin{table}[t]
+\caption{Aggregate Mismatch Performance on CIFAR10/AWGN/C=32}
+\label{tab:aggregate}
+\centering
+\scriptsize
+\begin{tabular}{lrrrr}
+\toprule
+Condition & Original & UA & PSNR gain & MS-SSIM gain\\
+\midrule
+Off-diagonal avg. & \OrigOffPSNR{} & \UAOffPSNR{} & +\GainOffPSNR{} & +\GainOffMSSSIM{}\\
+Diagonal avg. & \OrigDiagPSNR{} & \UADiagPSNR{} & \GainDiagPSNR{} & \GainDiagMSSSIM{}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\input{figures/fig3_aggregate_tradeoff}
+
+Table~\ref{tab:cases} and Fig.~\ref{fig:case-gains} list representative mismatch cases. The largest observed gain occurs at $\gamma=1$ dB and $\hat{\gamma}=7$ dB, where PSNR improves by 4.7989 dB. This case corresponds to overestimating a poor physical channel, where the original modulation policy is likely to under-protect the latent representation.
+
+\begin{table}[t]
+\caption{Representative PSNR Gains Under SNR Mismatch}
+\label{tab:cases}
+\centering
+\scriptsize
+\begin{tabular}{rrrrr}
+\toprule
+$\gamma$ & $\hat{\gamma}$ & Original & UA & Gain\\
+\midrule
+\input{representative_cases_rows}
+\bottomrule
+\end{tabular}
+\end{table}
+
+\input{figures/fig4_representative_gains}
+
+The scope of the current evaluation is limited to CIFAR10/AWGN/C=32 and a single available UA result file. Before submission, the exact fine-tuning epoch should be recorded and additional ablations should be completed, including $\Delta\in\{0,1,3,6\}$, matched-only fine-tuning, conservative SNR conditioning, and repeated seeds. These missing studies are not used as evidence in the present results.
+
+\section{Conclusion}
+
+This letter reformulates adaptive SwinJSCC under imperfect CSI by decoupling the physical channel SNR from the SNR used by Channel ModNet. The resulting UA objective trains the model over bounded SNR estimation errors and better matches deployment conditions where CSI feedback is imperfect. On CIFAR10/AWGN/C=32, UA training improves average off-diagonal mismatch PSNR by 1.92 dB while preserving matched-SNR performance. Future work will extend the evaluation to fading channels, high-resolution images, rate adaptation, and explicit uncertainty modeling.
+
+% TODO-RUN before submission: Delta ablation, matched-only fine-tuning baseline,
+% conservative SNR-conditioning baseline, repeated seeds, and verified qualitative
+% reconstruction comparisons from separated original/UA visualization directories.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
