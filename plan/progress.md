@@ -33,3 +33,12 @@
 - Manual framework figure: `latex/figures/fig1_framework.tex`.
 - Generated result fragments: `latex/generated_metrics.tex`, `latex/representative_cases_rows.tex`.
 - Checks: figures regenerated from real CIFAR10/AWGN/C=32 CSV files; local TeX engine is not installed, so PDF compilation could not be executed in this environment.
+
+## 2026-05-26 - Robust Imperfect-CSI Training
+
+- Status: implemented
+- User request: start strengthening the method beyond basic UA training.
+- Output: `main.py` now supports `--robust-train`, `--num-mismatch-samples`, `--tail-alpha`, `--lambda-tail`, and `--lambda-cons`.
+- Method: robust training samples multiple estimated SNRs for the same true SNR, optimizes mean reconstruction loss plus top-tail mismatch loss, and optionally adds reconstruction consistency regularization.
+- Experiment guide: `plan/robust-training.md`.
+- Checks: `python -m py_compile main.py net/network.py`.

@@ -14,6 +14,7 @@ import time
 import torchvision
 import csv
 import numpy as np
+import torch.nn.functional as F
 
 
 parser = argparse.ArgumentParser(description='SwinJSCC')
@@ -43,6 +44,16 @@ parser.add_argument('--snr-max', type=float, default=13.0,
                     help='maximum clipped estimated SNR')
 parser.add_argument('--checkpoint', type=str, default='',
                     help='checkpoint path for loading pretrained model')
+parser.add_argument('--robust-train', action='store_true',
+                    help='enable tail-risk robust mismatch training')
+parser.add_argument('--num-mismatch-samples', type=int, default=3,
+                    help='number of estimated SNR samples per true SNR for robust training')
+parser.add_argument('--tail-alpha', type=float, default=0.8,
+                    help='CVaR confidence level; higher values focus on fewer worst samples')
+parser.add_argument('--lambda-tail', type=float, default=0.5,
+                    help='weight for the tail-risk loss term')
+parser.add_argument('--lambda-cons', type=float, default=0.0,
+                    help='weight for mismatch reconstruction consistency loss')
 args = parser.parse_args()
 
 
@@ -236,6 +247,16 @@ def load_weights(model_path):
     net.load_state_dict(pretrained, strict=True)
     del pretrained
 
+def sample_snr_hat(args, snr_true):
+    if args.delta_train > 0:
+        eps = np.random.uniform(-args.delta_train, args.delta_train)
+        snr_hat = snr_true + eps
+        snr_hat = float(np.clip(snr_hat, args.snr_min, args.snr_max))
+    else:
+        snr_hat = snr_true
+    return snr_hat
+
+
 def sample_ua_snr_pair(args, net):
     """
     snr_true: true channel SNR, used by the physical channel
@@ -243,14 +264,79 @@ def sample_ua_snr_pair(args, net):
     """
     snr_true = float(np.random.choice(net.multiple_snr))
 
-    if args.ua_train and args.delta_train > 0:
-        eps = np.random.uniform(-args.delta_train, args.delta_train)
-        snr_hat = snr_true + eps
-        snr_hat = float(np.clip(snr_hat, args.snr_min, args.snr_max))
+    if args.ua_train or args.robust_train:
+        snr_hat = sample_snr_hat(args, snr_true)
     else:
         snr_hat = snr_true
 
     return snr_true, snr_hat
+
+
+def robust_mismatch_forward(args, net, input_image):
+    """
+    Tail-risk robust imperfect-CSI training.
+
+    For one true physical SNR, draw K estimated SNR values for Channel ModNet.
+    Optimize average reconstruction loss, a top-tail loss over the worst sampled
+    mismatches, and an optional reconstruction consistency penalty.
+    """
+    snr_true = float(np.random.choice(net.multiple_snr))
+    sample_count = max(1, int(args.num_mismatch_samples))
+    losses = []
+    recons = []
+    mses = []
+    cbr_values = []
+    snr_hat_values = []
+
+    for _ in range(sample_count):
+        snr_hat = sample_snr_hat(args, snr_true)
+        recon_image, CBR, SNR, mse, loss_G = net(
+            input_image,
+            given_SNR=snr_true,
+            given_rate=config.channel_number,
+            mod_SNR=snr_hat
+        )
+        losses.append(loss_G)
+        recons.append(recon_image.clamp(0., 1.))
+        mses.append(mse)
+        cbr_values.append(CBR)
+        snr_hat_values.append(snr_hat)
+
+    loss_stack = torch.stack(losses)
+    mean_loss = loss_stack.mean()
+
+    tail_fraction = max(0.0, min(1.0, 1.0 - float(args.tail_alpha)))
+    tail_count = max(1, int(np.ceil(sample_count * tail_fraction)))
+    tail_loss = torch.topk(loss_stack, k=tail_count).values.mean()
+
+    if args.lambda_cons > 0 and len(recons) > 1:
+        anchor = recons[0]
+        cons_terms = [F.l1_loss(recon, anchor) for recon in recons[1:]]
+        cons_loss = torch.stack(cons_terms).mean()
+    else:
+        cons_loss = loss_stack.new_tensor(0.0)
+
+    total_loss = (
+        mean_loss
+        + float(args.lambda_tail) * tail_loss
+        + float(args.lambda_cons) * cons_loss
+    )
+
+    best_idx = int(torch.argmin(loss_stack.detach()).item())
+    recon_for_metrics = recons[best_idx]
+    mean_mse = torch.stack(mses).mean()
+    mean_cbr = float(np.mean(cbr_values))
+
+    robust_stats = {
+        "snr_true": snr_true,
+        "snr_hat_min": min(snr_hat_values),
+        "snr_hat_max": max(snr_hat_values),
+        "mean_loss": mean_loss.detach().item(),
+        "tail_loss": tail_loss.detach().item(),
+        "cons_loss": cons_loss.detach().item(),
+    }
+
+    return recon_for_metrics, mean_cbr, snr_true, mean_mse, total_loss, robust_stats
 
 
 def train_one_epoch(args):
@@ -280,7 +366,14 @@ def train_one_epoch(args):
         # =========================
         # Core training call
         # =========================
-        if args.ua_train:
+        if args.robust_train:
+            recon_image, CBR, SNR, mse, loss_G, robust_stats = robust_mismatch_forward(
+                args, net, input
+            )
+            snr_true = robust_stats["snr_true"]
+            snr_hat = robust_stats["snr_hat_max"]
+
+        elif args.ua_train:
             snr_true, snr_hat = sample_ua_snr_pair(args, net)
 
             recon_image, CBR, SNR, mse, loss_G = net(
@@ -292,6 +385,7 @@ def train_one_epoch(args):
         else:
             snr_true = None
             snr_hat = None
+            robust_stats = None
 
             # Original SwinJSCC training
             recon_image, CBR, SNR, mse, loss_G = net(input)
@@ -318,7 +412,14 @@ def train_one_epoch(args):
         if (global_step % config.print_step) == 0:
             process = (global_step % train_loader.__len__()) / (train_loader.__len__()) * 100.0
 
-            if args.ua_train:
+            if args.robust_train:
+                snr_log = (
+                    f"SNR_true {SNR:.1f} | "
+                    f"SNR_hat [{robust_stats['snr_hat_min']:.2f}, {robust_stats['snr_hat_max']:.2f}] | "
+                    f"Tail {robust_stats['tail_loss']:.4f} | "
+                    f"Cons {robust_stats['cons_loss']:.4f}"
+                )
+            elif args.ua_train:
                 snr_log = f'SNR_true {SNR:.1f} | SNR_hat {snr_hat:.2f}'
             else:
                 snr_log = f'SNR {snrs.val:.1f} ({snrs.avg:.1f})'
