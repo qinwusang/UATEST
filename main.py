@@ -15,6 +15,8 @@ import torchvision
 import csv
 import numpy as np
 import torch.nn.functional as F
+import os
+import re
 
 
 parser = argparse.ArgumentParser(description='SwinJSCC')
@@ -54,7 +56,75 @@ parser.add_argument('--lambda-tail', type=float, default=0.5,
                     help='weight for the tail-risk loss term')
 parser.add_argument('--lambda-cons', type=float, default=0.0,
                     help='weight for mismatch reconstruction consistency loss')
+parser.add_argument('--exp-name', type=str, default='',
+                    help='optional readable experiment name used in output directories and result files')
+parser.add_argument('--max-epoch', type=int, default=0,
+                    help='stop training after this many epochs; 0 keeps the original long-running behavior')
 args = parser.parse_args()
+
+
+def _safe_name(value):
+    value = str(value).strip()
+    value = value.replace('/', '-').replace('\\', '-')
+    value = re.sub(r'[^A-Za-z0-9._-]+', '-', value)
+    value = re.sub(r'-+', '-', value).strip('-_.')
+    return value or 'untitled'
+
+
+def _num_tag(value):
+    value = float(value)
+    if value.is_integer():
+        return str(int(value))
+    return ('{:.4g}'.format(value)).replace('.', 'p')
+
+
+def _model_tag(model_name):
+    return _safe_name(model_name.replace('w/_', 'w-').replace('w/o_', 'wo-'))
+
+
+def build_method_tag():
+    if args.robust_train:
+        if args.lambda_tail > 0 and args.lambda_cons > 0:
+            method = 'tail-cons-ua'
+        elif args.lambda_tail > 0:
+            method = 'tail-ua'
+        elif args.lambda_cons > 0:
+            method = 'cons-ua'
+        else:
+            method = 'robust-ua'
+        return (
+            f"{method}_d{_num_tag(args.delta_train)}"
+            f"_k{args.num_mismatch_samples}"
+            f"_a{_num_tag(args.tail_alpha)}"
+            f"_lt{_num_tag(args.lambda_tail)}"
+            f"_lc{_num_tag(args.lambda_cons)}"
+        )
+    if args.ua_train:
+        return f"ua_d{_num_tag(args.delta_train)}"
+    return 'original'
+
+
+def build_experiment_tag():
+    parts = [
+        args.trainset,
+        args.channel_type,
+        _model_tag(args.model),
+        f"C{_safe_name(args.C)}",
+        build_method_tag(),
+    ]
+    if args.exp_name:
+        parts.insert(0, _safe_name(args.exp_name))
+    return _safe_name('_'.join(parts))
+
+
+def checkpoint_tag(path):
+    if not path:
+        return 'default-checkpoint'
+    base = os.path.splitext(os.path.basename(path))[0]
+    return _safe_name(base)[-96:]
+
+
+EXPERIMENT_TAG = build_experiment_tag()
 
 
 class config():
@@ -67,7 +137,7 @@ class config():
     print_step = 1000
     plot_step = 10000
     # filename = datetime.now().__str__()[:-7]
-    filename = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = "{}_{}".format(datetime.now().strftime("%Y%m%d_%H%M%S"), EXPERIMENT_TAG)
     
     workdir = './history/{}'.format(filename)
     log = workdir + '/Log_{}.log'.format(filename)
@@ -78,7 +148,7 @@ class config():
     # training details
     normalize = False
     learning_rate = 0.0001
-    tot_epoch = 10000000
+    tot_epoch = args.max_epoch if args.max_epoch > 0 else 10000000
 
     if args.trainset == 'CIFAR10':
         save_model_freq = 5
@@ -583,13 +653,18 @@ def test():
 
     # 2. Output directories
     result_dir = "./mismatch_results"
-    vis_root = "./mismatch_vis_cifar10" if args.trainset == "CIFAR10" else "./mismatch_vis_hr"
+    eval_tag = "{}_ckpt-{}".format(
+        EXPERIMENT_TAG,
+        checkpoint_tag(globals().get("model_path", args.checkpoint))
+    )
+    vis_prefix = "./mismatch_vis_cifar10" if args.trainset == "CIFAR10" else "./mismatch_vis_hr"
+    vis_root = "{}_{}".format(vis_prefix, eval_tag)
     os.makedirs(result_dir, exist_ok=True)
     os.makedirs(vis_root, exist_ok=True)
 
     csv_path = os.path.join(
         result_dir,
-        f"{args.trainset}_{args.channel_type}_{args.model.replace('/', '-')}_C{args.C}_mismatch.csv"
+        f"{eval_tag}_mismatch.csv"
     )
 
     results = []
@@ -602,6 +677,9 @@ def test():
     logger.info(f"SNR_true list: {true_snr_list}")
     logger.info(f"SNR_hat list: {hat_snr_list}")
     logger.info(f"C list: {channel_number}")
+    logger.info(f"Experiment tag: {EXPERIMENT_TAG}")
+    logger.info(f"Mismatch CSV: {csv_path}")
+    logger.info(f"Visualization root: {vis_root}")
 
     with torch.no_grad():
         for SNR_true in true_snr_list:

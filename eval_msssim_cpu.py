@@ -2,6 +2,7 @@ import os
 import csv
 import math
 import argparse
+import re
 import numpy as np
 import torch
 import torch.nn as nn
@@ -26,9 +27,47 @@ parser.add_argument('--C', type=str, default='32')
 parser.add_argument('--multiple-snr', type=str, default='1,4,7,10,13')
 parser.add_argument('--model_size', type=str, default='base', choices=['small', 'base', 'large'])
 parser.add_argument('--checkpoint', type=str, required=True)
-parser.add_argument('--output', type=str, default='./mismatch_results/cifar10_msssim_cpu.csv')
+parser.add_argument('--output', type=str, default='')
+parser.add_argument('--exp-name', type=str, default='',
+                    help='optional readable experiment name used in the output file name')
 
 args = parser.parse_args()
+
+
+def _safe_name(value):
+    value = str(value).strip()
+    value = value.replace('/', '-').replace('\\', '-')
+    value = re.sub(r'[^A-Za-z0-9._-]+', '-', value)
+    value = re.sub(r'-+', '-', value).strip('-_.')
+    return value or 'untitled'
+
+
+def _model_tag(model_name):
+    return _safe_name(model_name.replace('w/_', 'w-').replace('w/o_', 'wo-'))
+
+
+def checkpoint_tag(path):
+    base = os.path.splitext(os.path.basename(path))[0]
+    return _safe_name(base)[-96:]
+
+
+def build_eval_tag():
+    parts = [
+        args.trainset,
+        args.channel_type,
+        _model_tag(args.model),
+        f"C{_safe_name(args.C)}",
+        f"ckpt-{checkpoint_tag(args.checkpoint)}",
+    ]
+    if args.exp_name:
+        parts.insert(0, _safe_name(args.exp_name))
+    return _safe_name('_'.join(parts))
+
+
+EVAL_TAG = build_eval_tag()
+
+if not args.output:
+    args.output = os.path.join('./mismatch_results', f'{EVAL_TAG}_msssim_cpu.csv')
 
 
 class config:
@@ -40,9 +79,9 @@ class config:
 
     print_step = 100
     plot_step = 10000
-    filename = "eval_msssim_cpu"
-    workdir = './history/eval_msssim_cpu'
-    log = workdir + '/Log_eval_msssim_cpu.log'
+    filename = "eval_msssim_cpu_{}".format(EVAL_TAG)
+    workdir = './history/{}'.format(filename)
+    log = workdir + '/Log_{}.log'.format(filename)
     samples = workdir + '/samples'
     models = workdir + '/models'
     logger = None
@@ -103,7 +142,9 @@ def load_weights(net, model_path):
 
 def main():
     seed_torch()
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    output_dir = os.path.dirname(args.output)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
 
     config.logger = logger_configuration(config, save_log=False)
 
@@ -130,6 +171,8 @@ def main():
     results = []
 
     print("=================== CPU MS-SSIM Evaluation Starting ===================")
+    print(f"Experiment tag: {EVAL_TAG}")
+    print(f"Output CSV: {args.output}")
 
     with torch.no_grad():
         for snr_true in true_snr_list:
