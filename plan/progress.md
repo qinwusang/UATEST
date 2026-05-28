@@ -80,6 +80,26 @@
 - User request: implement the reviewer-style cleanup plan for the 4-page CL draft.
 - Main changes: retitled the paper around SNR mismatch/imperfect SNR estimation, removed draft-generation language, fixed the robust-loss formula, clarified PSNR/MSE scaling, reduced figures to one PSNR heatmap, and moved the main table to a Delta/baseline trade-off view.
 - Figure/table generation: `latex/generate_figures.py` now emits `table_tradeoff_rows.tex`, `table_rayleigh_rows.tex`, `generated_metrics.tex`, and `figures/fig2_psnr_heatmaps.*`.
-- Evidence update: D1, D3, D6, random-hat, and Rayleigh CPU CSV files are used; D0-EP10 is missing and is kept as a TODO row rather than substituted with D0-EP5.
+- Evidence update: D1, D3, D6, random-hat, and Rayleigh CPU CSV files are used; this note was superseded on 2026-05-29 when the available D0 CSV was accepted as the Perfect-SNR FT baseline.
 - Reference cleanup: `latex/references.bib` was rewritten with IEEE-style abbreviations and corrected DeepJSCC-f/OFDM/DeepSC-related author entries.
 - Checks: `python latex\generate_figures.py`; SVG scan for `+39`/`+48`; further LaTeX compilation requires a TeX installation.
+
+## 2026-05-29 - D0 Baseline Integration and Paper Prose Pass
+
+- Status: completed.
+- User request: use the available D0 result as the Perfect-SNR FT baseline and continue writing the paper from the provided result set.
+- Stage: S3/S4, experiment integration and LaTeX manuscript drafting.
+- Task packet: `plan/task-packets/2026-05-29-d0-paper-redraft.md`.
+- Main changes: `latex/generate_figures.py` now reads the available D0 CPU CSV and emits a numeric Perfect-SNR FT row; `latex/main.tex` now uses D0 to argue that mismatch robustness is not explained by fine-tuning alone.
+- Added result organization: `latex/table_auxiliary_rows.tex` reports Tail-UA, Cons-UA, Tail+Cons-UA, and stronger-tail variants as auxiliary robustness checks.
+- Boundary: the paper reports the baseline as `D0`/Perfect-SNR FT and does not claim an EP10 epoch count for that run in the manuscript body.
+
+### Capability-use audit
+
+- Required skills: `paper-orchestration`, `latex-output`, `figures-python`.
+- Skills actually used: same three skills, plus local validation scripts.
+- Inputs consumed: D0, D1, D3, D6, random-hat, Tail/Cons, and Rayleigh CPU CSV files; current LaTeX manuscript and generator.
+- Inputs not used and why: no repeated-seed results are used because the user explicitly excluded repeated seed experiments.
+- Artifacts produced: updated manuscript prose, regenerated trade-off rows, new auxiliary robustness table rows, updated metrics macros, updated evidence map and README.
+- Verification run: `python latex\generate_figures.py`; `python -m py_compile latex\generate_figures.py`; abstract length/input check; SVG gain-label scan; `git diff --check -- latex plan`.
+- Remaining risk: local TeX engine is still unavailable, so PDF compilation must be run on the remote server or another machine with TeX installed.

@@ -46,13 +46,14 @@
 ## Source E6c: Delta and baseline results
 
 - Paths:
+  - `mismatch_results/ua-d0-eval_*_EP5_msssim_cpu.csv`
   - `mismatch_results/ua-d1-eval_*_EP10_msssim_cpu.csv`
   - `mismatch_results/ua-d6-eval_*_EP10_msssim_cpu.csv`
   - `mismatch_results/random-hat-eval_*_EP10_msssim_cpu.csv`
   - `mismatch_results/rayleigh-original-eval_*_msssim_cpu.csv`
   - `mismatch_results/rayleigh-ua-d3-eval_*_EP10_msssim_cpu.csv`
 - Supports: Delta-width trade-off, independent random SNR conditioning baseline, and a Rayleigh channel check.
-- Boundary: `ua-d0-eval_*_EP10_msssim_cpu.csv` is not currently available; D0-EP5 must not be used as the formal Perfect-CSI fine-tuning baseline.
+- Boundary: the current manuscript uses the available D0 CSV as the Perfect-SNR FT baseline and does not state an epoch-count claim for D0 in the paper body.
 
 ## Source E6b: Robust variant checkpoint results
 
@@ -68,6 +69,7 @@
 
 - Off-diagonal average PSNR: original 29.8782 dB, UA 31.7947 dB, improvement 1.9164 dB.
 - Diagonal average PSNR: original 34.9688 dB, UA 34.8771 dB, difference -0.0917 dB.
+- Perfect-SNR D0 fine-tuning off-diagonal PSNR gain over original: +0.03 dB; matched PSNR change: +0.05 dB.
 - UA-D6 off-diagonal PSNR gain over original: +3.11 dB; matched PSNR change: -0.36 dB.
 - Random-hat off-diagonal PSNR gain over original: +4.06 dB; matched PSNR change: -1.04 dB.
 - Rayleigh UA-D3 off-diagonal PSNR gain over Rayleigh original: +1.50 dB.
@@ -97,8 +99,6 @@ These derived values are computed from E5, E6, and E6b.
 
 ## Current Evidence Gaps
 
-- [TODO-RUN] Delta ablation: `Delta={0,1,3,6}`.
-- [TODO-RUN] formal D0-EP10 Perfect-SNR fine-tuning result.
 - [TODO-RUN] matched-only fine-tuning baseline.
 - [TODO-RUN] conservative SNR conditioning baseline.
 - [TODO-RUN] no-SA/no-Channel-ModNet baseline if compatible checkpoint exists.

@@ -18,7 +18,7 @@
 \maketitle
 
 \begin{abstract}
-Adaptive Deep JSCC image transmission conditions neural encoders and decoders on channel SNR, but standard SwinJSCC evaluation assumes that the modulation SNR equals the true physical SNR. This letter studies SNR-mismatched SwinJSCC under imperfect SNR estimation. We decouple the true SNR and estimated SNR, and train with bounded estimation errors. On CIFAR10/AWGN/C=32, UA-D3 improves off-diagonal PSNR by 1.92 dB with only 0.09 dB matched-SNR loss, while larger perturbations and random conditioning expose a robustness--fidelity trade-off.
+Adaptive Deep JSCC image transmission conditions neural encoders and decoders on channel SNR, but standard SwinJSCC evaluation assumes that the modulation SNR equals the true physical SNR. This letter studies SNR-mismatched SwinJSCC under imperfect SNR estimation by separating the physical SNR from the estimated modulation SNR. Perfect-SNR fine-tuning improves off-diagonal PSNR by only 0.03 dB, whereas uncertainty-aware training with $\Delta=3$ dB improves it by 1.92 dB with 0.09 dB matched-SNR loss. Wider perturbations reveal a robustness--fidelity trade-off.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -33,7 +33,7 @@ SwinJSCC extends adaptive Deep JSCC by combining a Swin Transformer backbone wit
 
 This letter studies this SNR-mismatched setting. The model architecture is unchanged; only the SNR interface is separated into the true physical SNR $\gamma$ and the estimated modulation SNR $\hat{\gamma}$. The contribution is not a new Transformer backbone, but a training and evaluation protocol for imperfect SNR estimation. We formulate the corresponding risk, introduce uncertainty-aware (UA) training with bounded SNR perturbations, and compare it with perfect-SNR fine-tuning, wider perturbations, independent random SNR conditioning, and a Rayleigh-channel check.
 
-\section{System Model}
+\section{System Model and Problem Formulation}
 
 Let $\mathbf{x}\in[0,1]^{3\times H\times W}$ denote an input image and $C$ denote the bottleneck dimension. The encoder produces
 \begin{equation}
@@ -96,7 +96,7 @@ Thus \eqref{eq:risk_perfect} is the special case of \eqref{eq:risk_mismatch} wit
 
 \input{figures/fig1_framework}
 
-\section{Uncertainty-Aware Training}
+\section{SNR-Mismatch Training}
 
 UA training samples the true SNR and estimated-SNR error as
 \begin{equation}
@@ -113,7 +113,7 @@ For a mini-batch $\mathcal{B}$, the empirical objective is
 d\!\left(G_{\theta}(T_{\gamma_i}(F_{\theta}(\mathbf{x}_i,\hat{\gamma}_i,C)),\hat{\gamma}_i),\mathbf{x}_i\right).
 \label{eq:ua_risk}
 \end{equation}
-When $\Delta=0$, this reduces to perfect-SNR fine-tuning; when $\Delta>0$, the training distribution covers a neighborhood of plausible SNR estimates.
+When $\Delta=0$, this reduces to perfect-SNR fine-tuning. When $\Delta>0$, the training distribution covers a neighborhood of plausible SNR estimates and therefore optimizes an empirical approximation of the mismatch risk in \eqref{eq:risk_mismatch}, rather than the degenerate perfect-SNR risk in \eqref{eq:risk_perfect}.
 
 The implementation also supports a robust auxiliary loss using $K$ estimated SNR samples for the same true SNR. Let
 \begin{equation}
@@ -142,7 +142,7 @@ This observation motivates training over an error neighborhood but does not impl
 
 \section{Experimental Results}
 
-The main evaluation uses CIFAR10 over AWGN with $C=32$ and $\mathcal{S}=\{1,4,7,10,13\}$ dB. All fine-tuned models initialize from the original SwinJSCC \texttt{w/SA} CIFAR10/AWGN/C32 checkpoint and use Adam with learning rate $10^{-4}$ and batch size 256. The reported mean-square error is computed on pixel values scaled to $[0,255]$, i.e.,
+The main evaluation uses CIFAR10 over AWGN with $C=32$ and $\mathcal{S}=\{1,4,7,10,13\}$ dB. All fine-tuned models initialize from the original SwinJSCC \texttt{w/SA} CIFAR10/AWGN/C32 checkpoint and use Adam with learning rate $10^{-4}$ and batch size 256. The D0 baseline uses $\Delta=0$ and is included to separate the effect of additional perfect-SNR fine-tuning from mismatch-aware sampling. The reported mean-square error is computed on pixel values scaled to $[0,255]$, i.e.,
 \begin{equation}
 \mathrm{MSE}_{255}=\mathbb{E}\!\left[\|\mathbf{x}_{255}-\hat{\mathbf{x}}_{255}\|_2^2\right],
 \label{eq:mse255}
@@ -167,10 +167,10 @@ For a mismatch matrix $\mathbf{P}_{i,j}=\mathrm{PSNR}(\gamma_i,\hat{\gamma}_j)$,
 
 \input{figures/fig2_psnr_heatmaps}
 
-Fig.~\ref{fig:psnr-heatmaps} shows that UA-D3 improves the off-diagonal region where the original checkpoint is sensitive to SNR overestimation. Table~\ref{tab:tradeoff} gives the compact trade-off view. UA-D3 increases off-diagonal PSNR by \DThreeOffGain{} dB while changing matched PSNR by only \DThreeDiagGain{} dB. Increasing the perturbation width to D6 further improves off-diagonal robustness by \DSixOffGain{} dB, but the matched-SNR loss grows to \DSixDiagGain{} dB. Independent random SNR conditioning gives the highest off-diagonal score, but its matched-SNR degradation of \RandomDiagGain{} dB indicates a different robustness--fidelity operating point rather than a direct replacement for bounded SNR-error training.
+Fig.~\ref{fig:psnr-heatmaps} shows that UA-D3 improves the off-diagonal region where the original checkpoint is sensitive to SNR overestimation. Table~\ref{tab:tradeoff} gives the compact trade-off view. Perfect-SNR fine-tuning alone changes off-diagonal PSNR by only \DZeroOffGain{} dB, which indicates that the main robustness gain is not explained by additional optimization alone. UA-D3 increases off-diagonal PSNR by \DThreeOffGain{} dB while changing matched PSNR by only \DThreeDiagGain{} dB. Increasing the perturbation width to D6 further improves off-diagonal robustness by \DSixOffGain{} dB, but the matched-SNR loss grows to \DSixDiagGain{} dB. Independent random SNR conditioning gives the highest off-diagonal score, but its matched-SNR degradation of \RandomDiagGain{} dB indicates a different robustness--fidelity operating point rather than a direct replacement for bounded SNR-error training.
 
 \begin{table*}[t]
-\caption{AWGN SNR-mismatch trade-off on CIFAR10/C=32. D0 is reserved for the EP10 perfect-SNR fine-tuning baseline; if unavailable, it is intentionally left as TODO rather than replaced by an EP5 result.}
+\caption{AWGN SNR-mismatch trade-off on CIFAR10/C=32. D0 denotes perfect-SNR fine-tuning with $\Delta=0$.}
 \label{tab:tradeoff}
 \centering
 \scriptsize
@@ -182,6 +182,20 @@ Method & Matched PSNR & Off-diag. PSNR & Worst PSNR & $\Delta$ matched & $\Delta
 \bottomrule
 \end{tabular}
 \end{table*}
+
+\begin{table}[t]
+\caption{Auxiliary robustness variants on CIFAR10/AWGN/C=32.}
+\label{tab:auxiliary}
+\centering
+\scriptsize
+\begin{tabular}{lrrrrr}
+\toprule
+Method & Matched & Off-diag. & Worst & Off. gain & Worst gain\\
+\midrule
+\input{table_auxiliary_rows}
+\bottomrule
+\end{tabular}
+\end{table}
 
 \begin{table}[t]
 \caption{Rayleigh check on CIFAR10/C=32.}
@@ -197,11 +211,11 @@ Method & Matched & Off-diag. & Worst & Off. gain & Off. MS-dB\\
 \end{tabular}
 \end{table}
 
-The Rayleigh check in Table~\ref{tab:rayleigh} gives a preliminary indication that the same SNR-mismatch training idea is not limited to AWGN, with an off-diagonal PSNR gain of \RayleighOffGain{} dB. This result is reported as an additional channel check, not as a comprehensive fading-channel study.
+The auxiliary variants in Table~\ref{tab:auxiliary} show that tail and consistency terms provide additional tail-oriented operating points, but they do not replace the simpler D3 result as the central average-robustness setting. For example, Tail+Cons-UA improves worst-case PSNR by \TailConsWorstGain{} dB, and the stronger tail setting reaches a \TailLtOneWorstGain{} dB worst-case gain. The Rayleigh check in Table~\ref{tab:rayleigh} further gives a preliminary indication that the same SNR-mismatch training idea is not limited to AWGN, with an off-diagonal PSNR gain of \RayleighOffGain{} dB. This result is reported as an additional channel check, not as a comprehensive fading-channel study.
 
 \section{Conclusion}
 
-This letter revisits adaptive SwinJSCC under SNR estimation mismatch. By decoupling the true physical SNR from the estimated SNR used by Channel ModNet, UA training aligns the training objective with bounded SNR errors. On CIFAR10/AWGN/C=32, UA-D3 provides a favorable operating point, improving off-diagonal PSNR by 1.92 dB with only 0.09 dB matched-SNR loss. Wider perturbations and random SNR conditioning reveal stronger robustness at larger matched-SNR cost. Future work will extend the evaluation to high-resolution images, rate adaptation, and broader fading-channel conditions.
+This letter revisits adaptive SwinJSCC under SNR estimation mismatch. By decoupling the true physical SNR from the estimated SNR used by Channel ModNet, UA training aligns the training objective with bounded SNR errors. Perfect-SNR fine-tuning provides negligible off-diagonal improvement, whereas UA-D3 improves off-diagonal PSNR by 1.92 dB with only 0.09 dB matched-SNR loss on CIFAR10/AWGN/C=32. Wider perturbations, random SNR conditioning, and auxiliary robust losses expose controllable robustness--fidelity and average--tail trade-offs. Future work will extend the evaluation to high-resolution images, rate adaptation, and broader fading-channel conditions.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
