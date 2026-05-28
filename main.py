@@ -44,6 +44,11 @@ parser.add_argument('--snr-min', type=float, default=1.0,
 
 parser.add_argument('--snr-max', type=float, default=13.0,
                     help='maximum clipped estimated SNR')
+parser.add_argument('--snr-hat-mode', type=str, default='bounded',
+                    choices=['bounded', 'independent', 'fixed'],
+                    help='estimated-SNR sampling mode: bounded uses SNR_true plus bounded error, independent samples SNR_hat independently from the SNR set, fixed uses --fixed-snr-hat')
+parser.add_argument('--fixed-snr-hat', type=float, default=1.0,
+                    help='fixed estimated SNR used when --snr-hat-mode fixed')
 parser.add_argument('--checkpoint', type=str, default='',
                     help='checkpoint path for loading pretrained model')
 parser.add_argument('--robust-train', action='store_true',
@@ -82,6 +87,14 @@ def _model_tag(model_name):
     return _safe_name(model_name.replace('w/_', 'w-').replace('w/o_', 'wo-'))
 
 
+def snr_hat_mode_suffix():
+    if args.snr_hat_mode == 'bounded':
+        return ''
+    if args.snr_hat_mode == 'independent':
+        return '_indhat'
+    return f"_fixedhat{_num_tag(args.fixed_snr_hat)}"
+
+
 def build_method_tag():
     if args.robust_train:
         if args.lambda_tail > 0 and args.lambda_cons > 0:
@@ -98,9 +111,10 @@ def build_method_tag():
             f"_a{_num_tag(args.tail_alpha)}"
             f"_lt{_num_tag(args.lambda_tail)}"
             f"_lc{_num_tag(args.lambda_cons)}"
+            f"{snr_hat_mode_suffix()}"
         )
     if args.ua_train:
-        return f"ua_d{_num_tag(args.delta_train)}"
+        return f"ua_d{_num_tag(args.delta_train)}{snr_hat_mode_suffix()}"
     return 'original'
 
 
@@ -318,6 +332,13 @@ def load_weights(model_path):
     del pretrained
 
 def sample_snr_hat(args, snr_true):
+    if args.snr_hat_mode == 'fixed':
+        return float(np.clip(args.fixed_snr_hat, args.snr_min, args.snr_max))
+
+    if args.snr_hat_mode == 'independent':
+        snr_candidates = [float(x) for x in args.multiple_snr.split(",") if x.strip()]
+        return float(np.random.choice(snr_candidates))
+
     if args.delta_train > 0:
         eps = np.random.uniform(-args.delta_train, args.delta_train)
         snr_hat = snr_true + eps

@@ -63,3 +63,13 @@
 - Inputs consumed: five CPU MS-SSIM CSV files, existing LaTeX draft, existing framework figure, result summaries, and experiment manual.
 - Inputs not used and why: old `main.py` mismatch CSV files are not used as primary table evidence because their MS-SSIM fields are incomplete or inconsistent with CPU evaluation.
 - Artifacts produced: full LaTeX draft, generated figures/tables, copied normalized result CSVs, architecture file, task packet, README update, and data manifest update.
+
+## 2026-05-28 - Remaining Experiment Manual
+
+- Status: completed
+- User request: exclude repeated seeds and provide a one-by-one training manual for the remaining experiments.
+- Code support added: `main.py` now supports `--snr-hat-mode bounded|independent|fixed` and `--fixed-snr-hat`, so random SNR conditioning and fixed conservative conditioning baselines are executable.
+- Output: `plan/remaining-experiments-manual-zh.md`.
+- Traceability: `plan/review/method-experiment-traceability.md`.
+- Covered experiments: Delta ablation, qualitative reconstruction figure, independent SNR conditioning baseline, fixed SNR conditioning baseline, Tail/Cons small hyperparameter checks, Rayleigh checkpoint-dependent validation, and C/high-resolution checkpoint-dependent validation.
+- Checks: `python -m py_compile main.py net\network.py eval_msssim_cpu.py`. `python main.py --help` could not run in the local Windows environment because `torch` is not installed there; the remote training environment should have torch.
