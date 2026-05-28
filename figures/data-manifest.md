@@ -9,9 +9,9 @@ No fake figures are created in this draft pass. The current figure inventory is:
 | Fig. 3 | `mismatch_results/original_cifar10_awgn_C32_msssim_cpu.csv`, `mismatch_results/ua_delta3_cifar10_awgn_C32_msssim_cpu.csv`; `figures/heatmap-plan.md` | UA minus original PSNR gain heatmap | [TODO-FIG] real data exists, export pending |
 | Fig. 4 | future regenerated visualization directories; `figures/reconstruction-plan.md` | Original image, original mismatch reconstruction, UA mismatch reconstruction | [TODO-FIG] needs rerun to avoid checkpoint mixing |
 | LaTeX Fig. 1 | `latex/figures/fig1_framework.tex` | Native TikZ framework diagram for IEEEtran draft | Created |
-| LaTeX Fig. 2 | `latex/figures/fig2_mismatch_heatmaps.tex` | Original PSNR, UA PSNR, and UA-original PSNR gain heatmaps | Created from real CSV via `latex/generate_figures.py` |
-| LaTeX Fig. 3 | `latex/figures/fig3_aggregate_tradeoff.tex` | Off-diagonal and diagonal PSNR aggregate bar chart | Created from real CSV via `latex/generate_figures.py` |
-| LaTeX Fig. 4 | `latex/figures/fig4_representative_gains.tex` | Representative off-diagonal PSNR gains | Created from real CSV via `latex/generate_figures.py` |
+| LaTeX Fig. 2 | `latex/figures/fig2_psnr_heatmaps.{pdf,png,svg}` | Original PSNR, UA-D3 PSNR, and UA-D3 minus original PSNR gain heatmaps | Created from real CSV via `latex/generate_figures.py` |
+| LaTeX Table I | `latex/table_tradeoff_rows.tex` | AWGN Delta/baseline trade-off table; D0-EP10 row is TODO if the CPU CSV is absent | Created from real CSV via `latex/generate_figures.py` |
+| LaTeX Table II | `latex/table_rayleigh_rows.tex` | Rayleigh original vs UA-D3 check | Created from real CSV via `latex/generate_figures.py` |
 
 Available data files:
 
@@ -19,6 +19,11 @@ Available data files:
 |---|---|---|
 | `mismatch_results/original_cifar10_awgn_C32_msssim_cpu.csv` | Original PSNR/MS-SSIM matrix and Fig. 2 | Real local data |
 | `mismatch_results/ua_delta3_cifar10_awgn_C32_msssim_cpu.csv` | UA PSNR/MS-SSIM matrix and Fig. 3 | Real local data |
+| `mismatch_results/ua-d1-eval_*_EP10_msssim_cpu.csv` | UA-D1 row in the Delta table | Real local data |
+| `mismatch_results/ua-d6-eval_*_EP10_msssim_cpu.csv` | UA-D6 row in the Delta table | Real local data |
+| `mismatch_results/random-hat-eval_*_EP10_msssim_cpu.csv` | Independent random SNR conditioning baseline | Real local data |
+| `mismatch_results/rayleigh-original-eval_*_msssim_cpu.csv` | Rayleigh original row | Real local data |
+| `mismatch_results/rayleigh-ua-d3-eval_*_EP10_msssim_cpu.csv` | Rayleigh UA-D3 row | Real local data |
 | `mismatch_results/tail_ua_delta3_cifar10_awgn_C32_msssim_cpu.csv` | Tail-UA aggregate table and robustness comparison | Real local data |
 | `mismatch_results/cons_ua_delta3_cifar10_awgn_C32_msssim_cpu.csv` | Cons-UA aggregate table and robustness comparison | Real local data |
 | `mismatch_results/tail_cons_ua_delta3_cifar10_awgn_C32_msssim_cpu.csv` | Tail+Cons-UA aggregate table and robustness comparison | Real local data |

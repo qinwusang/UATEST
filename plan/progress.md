@@ -73,3 +73,13 @@
 - Traceability: `plan/review/method-experiment-traceability.md`.
 - Covered experiments: Delta ablation, qualitative reconstruction figure, independent SNR conditioning baseline, fixed SNR conditioning baseline, Tail/Cons small hyperparameter checks, Rayleigh checkpoint-dependent validation, and C/high-resolution checkpoint-dependent validation.
 - Checks: `python -m py_compile main.py net\network.py eval_msssim_cpu.py`. `python main.py --help` could not run in the local Windows environment because `torch` is not installed there; the remote training environment should have torch.
+
+## 2026-05-28 - CL Manuscript Cleanup for Submission Style
+
+- Status: completed with one explicit data TODO.
+- User request: implement the reviewer-style cleanup plan for the 4-page CL draft.
+- Main changes: retitled the paper around SNR mismatch/imperfect SNR estimation, removed draft-generation language, fixed the robust-loss formula, clarified PSNR/MSE scaling, reduced figures to one PSNR heatmap, and moved the main table to a Delta/baseline trade-off view.
+- Figure/table generation: `latex/generate_figures.py` now emits `table_tradeoff_rows.tex`, `table_rayleigh_rows.tex`, `generated_metrics.tex`, and `figures/fig2_psnr_heatmaps.*`.
+- Evidence update: D1, D3, D6, random-hat, and Rayleigh CPU CSV files are used; D0-EP10 is missing and is kept as a TODO row rather than substituted with D0-EP5.
+- Reference cleanup: `latex/references.bib` was rewritten with IEEE-style abbreviations and corrected DeepJSCC-f/OFDM/DeepSC-related author entries.
+- Checks: `python latex\generate_figures.py`; SVG scan for `+39`/`+48`; further LaTeX compilation requires a TeX installation.

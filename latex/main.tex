@@ -5,51 +5,49 @@
 \usepackage{cite}
 \usepackage{graphicx}
 \usepackage{tikz}
-\usepackage{xcolor}
 \usepackage{url}
 
 \input{generated_metrics}
 
-\title{Imperfect-CSI SwinJSCC: Uncertainty-Aware Training for Deep JSCC Under SNR Mismatch}
+\title{SNR-Mismatched SwinJSCC: Uncertainty-Aware Deep JSCC Under Imperfect SNR Estimation}
 
-\author{Anonymous Authors%
-\thanks{This Communication Letters-style draft is generated from the local imperfect-CSI SwinJSCC implementation and real CIFAR10/AWGN/C=32 result files.}}
+\author{Anonymous Authors}
 
 \begin{document}
 
 \maketitle
 
 \begin{abstract}
-Adaptive Deep JSCC image transmission often conditions neural encoders and decoders on the channel SNR, but standard SwinJSCC evaluation assumes that the modulation SNR is identical to the true physical SNR. This letter studies the imperfect-CSI case by decoupling the true SNR and the estimated SNR. We introduce uncertainty-aware training, together with tail-risk and reconstruction-consistency variants, without changing the Swin Transformer backbone. On CIFAR10/AWGN/C=32, uncertainty-aware training improves off-diagonal PSNR by 1.9164 dB with only 0.0917 dB matched-SNR loss.
+Adaptive Deep JSCC image transmission conditions neural encoders and decoders on channel SNR, but standard SwinJSCC evaluation assumes that the modulation SNR equals the true physical SNR. This letter studies SNR-mismatched SwinJSCC under imperfect SNR estimation. We decouple the true SNR and estimated SNR, and train with bounded estimation errors. On CIFAR10/AWGN/C=32, UA-D3 improves off-diagonal PSNR by 1.92 dB with only 0.09 dB matched-SNR loss, while larger perturbations and random conditioning expose a robustness--fidelity trade-off.
 \end{abstract}
 
 \begin{IEEEkeywords}
-Deep joint source-channel coding, imperfect CSI, semantic communications, SNR mismatch, SwinJSCC.
+Deep joint source-channel coding, imperfect SNR estimation, semantic communications, SNR mismatch, SwinJSCC.
 \end{IEEEkeywords}
 
 \section{Introduction}
 
-\IEEEPARstart{D}{eep} joint source-channel coding (Deep JSCC) maps source samples directly to channel symbols and can avoid the cliff effect associated with separate compression and channel coding under uncertain channel conditions \cite{shannon1948mathematical,cover2006elements,bourtsoulatze2019deepjscc}. For wireless image transmission, this end-to-end design has been extended with feedback, bandwidth agility, OFDM transmission, attention mechanisms, and nonlinear transform coding \cite{kurka2019deepjsccf,kurka2021bandwidth,yang2021ofdm,xu2022attention,dai2022ntscc}. These systems are often discussed in the broader context of semantic communications, where end-user reconstruction quality is a primary metric \cite{xie2020initial,xie2021semantic}.
+\IEEEPARstart{D}{eep} joint source-channel coding (Deep JSCC) directly maps source samples to channel symbols and can avoid the sharp threshold behavior of separate source and channel coding under channel variation \cite{shannon1948mathematical,cover2006elements,bourtsoulatze2019deepjscc}. For wireless image transmission, recent Deep JSCC systems have incorporated feedback, bandwidth agility, OFDM transmission, attention modules, and nonlinear transform coding \cite{kurka2020deepjsccf,kurka2021bandwidth,yang2021ofdm,xu2022attention,dai2022ntscc}. These developments are closely related to semantic communications, where the recovered signal quality is optimized directly rather than through bit-level recovery alone \cite{xie2020initial,xie2021semantic}.
 
-SwinJSCC advances this line by introducing a Swin Transformer backbone and modulation networks that adapt latent features to the channel SNR and channel bandwidth ratio \cite{liu2021swin,yang2024swinjscc}. Its SNR adaptation, however, is normally evaluated under a perfect-CSI convention: the SNR used to configure Channel ModNet is the same SNR that determines physical channel noise. This is convenient for benchmarking, but it is not the deployment distribution faced by a receiver that estimates SNR from pilots, feedback, or prediction. If the estimated SNR is optimistic, the encoder and decoder may modulate features for a cleaner channel than the channel actually provides; if it is pessimistic, the system may underuse available channel quality.
+SwinJSCC extends adaptive Deep JSCC by combining a Swin Transformer backbone with modulation networks that condition latent features on the channel SNR and bandwidth ratio \cite{liu2021swin,yang2024swinjscc}. Existing evaluation, however, normally follows a perfect-SNR convention: the SNR used by Channel ModNet is the same value that determines physical channel noise. In an AWGN setting, the practical uncertainty is more precisely an SNR estimation mismatch. The estimated SNR may be biased by pilot noise, delayed feedback, or prediction error, causing the modulation network to allocate features for a different channel quality than the transmitted symbols actually experience.
 
-This letter formulates and evaluates SwinJSCC under imperfect CSI. The central modification is deliberately narrow: the original Swin Transformer backbone and modulation networks are kept, while the true physical SNR $\gamma$ and the estimated modulation SNR $\hat{\gamma}$ are separated. The contributions are threefold. First, we define an imperfect-CSI risk for adaptive Deep JSCC and show that the perfect-CSI objective is a degenerate special case. Second, we introduce uncertainty-aware (UA) training and two robustness variants based on tail-risk and reconstruction consistency. Third, we report a full $\gamma \times \hat{\gamma}$ mismatch evaluation on CIFAR10/AWGN/C=32 using PSNR and MS-SSIM(dB), showing that UA training gives the strongest average off-diagonal gain while the tail/consistency variant gives the best worst-case robustness.
+This letter studies this SNR-mismatched setting. The model architecture is unchanged; only the SNR interface is separated into the true physical SNR $\gamma$ and the estimated modulation SNR $\hat{\gamma}$. The contribution is not a new Transformer backbone, but a training and evaluation protocol for imperfect SNR estimation. We formulate the corresponding risk, introduce uncertainty-aware (UA) training with bounded SNR perturbations, and compare it with perfect-SNR fine-tuning, wider perturbations, independent random SNR conditioning, and a Rayleigh-channel check.
 
-\section{System Model and Problem Formulation}
+\section{System Model}
 
-Let $\mathbf{x}\in[0,1]^{3\times H\times W}$ denote an input image and $C$ denote the bottleneck dimension. The SwinJSCC encoder produces a latent representation
+Let $\mathbf{x}\in[0,1]^{3\times H\times W}$ denote an input image and $C$ denote the bottleneck dimension. The encoder produces
 \begin{equation}
 \mathbf{z}=F_{\theta}(\mathbf{x},\hat{\gamma},C),
 \label{eq:encoder}
 \end{equation}
-where $\theta$ is the trainable parameter set and $\hat{\gamma}$ is the SNR supplied to Channel ModNet. Adjacent real latent components are paired into complex symbols. With $s_k=z_{2k-1}+jz_{2k}$, the normalized transmit vector is
+where $\hat{\gamma}$ is the estimated SNR supplied to Channel ModNet. Adjacent real latent components are paired into complex channel symbols, $s_k=z_{2k-1}+jz_{2k}$. The implementation normalizes these symbols as
 \begin{equation}
 \mathbf{s}=\frac{\mathbf{z}_{\rm pair}}{\sqrt{2\mathbb{E}[\mathbf{z}^{2}]}},
 \label{eq:power_norm}
 \end{equation}
-where the factor two follows from pairing two real components into one complex channel use.
+so that two real components form one unit-power complex symbol on average.
 
-For an AWGN channel with true SNR $\gamma$, the received complex symbol is
+For an AWGN channel with true SNR $\gamma$, the channel output is
 \begin{equation}
 \mathbf{y}=T_{\gamma}(\mathbf{s})=\mathbf{s}+\mathbf{n},
 \label{eq:awgn}
@@ -60,58 +58,54 @@ where $\mathbf{n}=\mathbf{n}_{\rm R}+j\mathbf{n}_{\rm I}$ and
 \mathcal{N}\!\left(0,\frac{1}{2\cdot10^{\gamma/10}}\mathbf{I}\right).
 \label{eq:noise}
 \end{equation}
-Thus the total complex noise power is $1/10^{\gamma/10}$. The decoder reconstructs
+The total complex noise power is therefore $1/10^{\gamma/10}$. The decoder reconstructs
 \begin{equation}
 \hat{\mathbf{x}}=G_{\theta}(\mathbf{y},\hat{\gamma}).
 \label{eq:decoder}
 \end{equation}
 
-The perfect-CSI assumption used in standard adaptive SwinJSCC evaluation is
+The perfect-SNR assumption is
 \begin{equation}
-\hat{\gamma}=\gamma.
-\label{eq:perfect_csi}
+\hat{\gamma}=\gamma,
+\label{eq:perfect_snr}
 \end{equation}
-It corresponds to the training risk
+which corresponds to the risk
 \begin{equation}
 \mathcal{R}_{\rm p}(\theta)=
 \mathbb{E}_{\mathbf{x},\gamma}
 \!\left[
 d\!\left(G_{\theta}(T_{\gamma}(F_{\theta}(\mathbf{x},\gamma,C)),\gamma),\mathbf{x}\right)
-\right],
+\right].
 \label{eq:risk_perfect}
 \end{equation}
-where $d(\cdot,\cdot)$ is the image distortion loss.
-
-In an imperfect-CSI link, the estimated SNR is modeled as
+With SNR estimation error,
 \begin{equation}
 \hat{\gamma}=\mathrm{clip}(\gamma+e,\gamma_{\min},\gamma_{\max}),
 \label{eq:mismatch_model}
 \end{equation}
-where $e$ is an SNR estimation error. The corresponding deployment risk is
+and the deployment risk becomes
 \begin{equation}
-\mathcal{R}_{\rm imp}(\theta)=
+\mathcal{R}_{\rm m}(\theta)=
 \mathbb{E}_{\mathbf{x},\gamma,e}
 \!\left[
 d\!\left(G_{\theta}(T_{\gamma}(F_{\theta}(\mathbf{x},\hat{\gamma},C)),\hat{\gamma}),\mathbf{x}\right)
 \right].
-\label{eq:risk_imperfect}
+\label{eq:risk_mismatch}
 \end{equation}
-If $\Pr(e\ne0)>0$, \eqref{eq:risk_perfect} optimizes the wrong distribution; it is recovered from \eqref{eq:risk_imperfect} only in the degenerate case $e=0$.
+Thus \eqref{eq:risk_perfect} is the special case of \eqref{eq:risk_mismatch} with $e=0$.
 
 \input{figures/fig1_framework}
 
-\section{Imperfect-CSI SwinJSCC}
+\section{Uncertainty-Aware Training}
 
-The implementation separates the single SNR input of SwinJSCC into two roles. The true SNR $\gamma$ is used only by the physical channel layer, while the estimated SNR $\hat{\gamma}$ is passed to the encoder and decoder Channel ModNet branches. The original inference path is recovered by setting $\hat{\gamma}=\gamma$.
-
-UA training samples
+UA training samples the true SNR and estimated-SNR error as
 \begin{equation}
-\gamma\sim\mathcal{S},\qquad
-e\sim\mathcal{U}[-\Delta,\Delta],\qquad
-\hat{\gamma}=\mathrm{clip}(\gamma+e,\gamma_{\min},\gamma_{\max}),
+\gamma\sim\mathcal{S},\quad
+e\sim\mathcal{U}[-\Delta,\Delta],\quad
+\hat{\gamma}=\mathrm{clip}(\gamma+e,\gamma_{\min},\gamma_{\max}).
 \label{eq:ua_sampling}
 \end{equation}
-and minimizes the empirical imperfect-CSI risk
+For a mini-batch $\mathcal{B}$, the empirical objective is
 \begin{equation}
 \widehat{\mathcal{R}}_{\rm UA}(\theta)=
 \frac{1}{|\mathcal{B}|}
@@ -119,48 +113,52 @@ and minimizes the empirical imperfect-CSI risk
 d\!\left(G_{\theta}(T_{\gamma_i}(F_{\theta}(\mathbf{x}_i,\hat{\gamma}_i,C)),\hat{\gamma}_i),\mathbf{x}_i\right).
 \label{eq:ua_risk}
 \end{equation}
-When $\Delta=0$, this objective reduces to perfect-CSI fine-tuning. When $\Delta>0$, the model is trained over a local neighborhood of possible CSI estimates.
+When $\Delta=0$, this reduces to perfect-SNR fine-tuning; when $\Delta>0$, the training distribution covers a neighborhood of plausible SNR estimates.
 
-For stronger robustness, the code also supports $K$ estimated-SNR samples for the same true SNR. Let
+The implementation also supports a robust auxiliary loss using $K$ estimated SNR samples for the same true SNR. Let
 \begin{equation}
 \ell_k=d\!\left(G_{\theta}(T_{\gamma}(F_{\theta}(\mathbf{x},\hat{\gamma}_k,C)),\hat{\gamma}_k),\mathbf{x}\right),
 \quad k=1,\ldots,K .
 \label{eq:sample_loss}
 \end{equation}
-The robust training loss is
+The robust loss is
 \begin{equation}
 \mathcal{L}_{\rm rob}
 =\frac{1}{K}\sum_{k=1}^{K}\ell_k
-\lambda_{\rm tail}\,\mathrm{Top}_{1-\alpha}(\{\ell_k\}_{k=1}^{K})
-\lambda_{\rm cons}\frac{1}{K-1}\sum_{k=2}^{K}\|\hat{\mathbf{x}}_k-\hat{\mathbf{x}}_1\|_1 ,
++\lambda_{\rm tail}\,\mathrm{Top}_{1-\alpha}(\{\ell_k\}_{k=1}^{K})
++\lambda_{\rm cons}\frac{1}{K-1}\sum_{k=2}^{K}\|\hat{\mathbf{x}}_k-\hat{\mathbf{x}}_1\|_1 ,
 \label{eq:robust_loss}
 \end{equation}
-where $\mathrm{Top}_{1-\alpha}(\cdot)$ averages the largest sampled losses and the last term discourages reconstruction drift under different estimated SNR inputs.
+where $\mathrm{Top}_{1-\alpha}(\cdot)$ averages the largest $\lceil K(1-\alpha)\rceil$ losses. This auxiliary form is used only as a robustness check in this letter; the central comparison is the effect of the SNR-error width $\Delta$.
 
-This objective should not be interpreted as a proof of uniform improvement at every SNR pair. If the reconstruction map and distortion are locally Lipschitz with respect to $e$, then for some $K_{\theta}$,
+If the end-to-end reconstruction map and distortion are locally Lipschitz with respect to $e$, then for some constant $K_{\theta}$,
 \begin{equation}
 \left|d(H_{\theta}(\mathbf{x},\gamma,e),\mathbf{x})
 -d(H_{\theta}(\mathbf{x},\gamma,0),\mathbf{x})\right|
-\le K_{\theta}|e|,
+\le K_{\theta}|e|.
 \label{eq:lipschitz}
 \end{equation}
-where $H_{\theta}$ is the full encoder-channel-decoder map under error $e$. This only justifies the distributional alignment of UA training with imperfect-CSI deployment; pointwise gains must be established empirically.
+This observation motivates training over an error neighborhood but does not imply pointwise dominance at every SNR pair.
 
 \section{Experimental Results}
 
-The evaluation uses CIFAR10 over AWGN with $C=32$ and $\mathcal{S}=\{1,4,7,10,13\}$ dB. The baseline is the original SwinJSCC \texttt{w/SA} CIFAR10/AWGN/C32 checkpoint. All imperfect-CSI variants use the same architecture and initialize from the original checkpoint. UA uses $\Delta=3$ dB, $\gamma_{\min}=1$ dB, and $\gamma_{\max}=13$ dB. Tail-UA and Cons-UA use $K=3$ sampled estimated SNRs; Tail-UA uses $\alpha=0.8$ and $\lambda_{\rm tail}=0.5$, Cons-UA uses $\lambda_{\rm cons}=0.1$, and Tail+Cons-UA combines both terms. Training uses batch size 256, Adam optimizer, learning rate $10^{-4}$, and seed 42.
-
-The reported metrics are PSNR and MS-SSIM(dB):
+The main evaluation uses CIFAR10 over AWGN with $C=32$ and $\mathcal{S}=\{1,4,7,10,13\}$ dB. All fine-tuned models initialize from the original SwinJSCC \texttt{w/SA} CIFAR10/AWGN/C32 checkpoint and use Adam with learning rate $10^{-4}$ and batch size 256. The reported mean-square error is computed on pixel values scaled to $[0,255]$, i.e.,
 \begin{equation}
-\mathrm{PSNR}=10\log_{10}\frac{255^2}{\mathrm{MSE}},
+\mathrm{MSE}_{255}=\mathbb{E}\!\left[\|\mathbf{x}_{255}-\hat{\mathbf{x}}_{255}\|_2^2\right],
+\label{eq:mse255}
+\end{equation}
+and the PSNR is
+\begin{equation}
+\mathrm{PSNR}=10\log_{10}\frac{255^2}{\mathrm{MSE}_{255}}.
 \label{eq:psnr}
 \end{equation}
+MS-SSIM(dB) is computed as
 \begin{equation}
 \mathrm{MS\text{-}SSIM}_{\rm dB}
 =-10\log_{10}(1-\mathrm{MS\text{-}SSIM}).
 \label{eq:msssimdb}
 \end{equation}
-For a mismatch matrix $\mathbf{P}_{i,j}=\mathrm{PSNR}(\gamma_i,\hat{\gamma}_j)$, diagonal entries measure matched-CSI performance and off-diagonal entries measure imperfect-CSI robustness:
+For a mismatch matrix $\mathbf{P}_{i,j}=\mathrm{PSNR}(\gamma_i,\hat{\gamma}_j)$, the off-diagonal average is
 \begin{equation}
 \overline{P}_{\rm off}=
 \frac{1}{N(N-1)}\sum_{i\ne j}\mathbf{P}_{i,j}.
@@ -169,62 +167,41 @@ For a mismatch matrix $\mathbf{P}_{i,j}=\mathrm{PSNR}(\gamma_i,\hat{\gamma}_j)$,
 
 \input{figures/fig2_psnr_heatmaps}
 
-Fig.~\ref{fig:psnr-heatmaps} shows that the original checkpoint is sensitive to SNR mismatch, especially when a poor physical channel is overestimated. UA-Delta3 improves most off-diagonal regions. The aggregate results in Table~\ref{tab:aggregate} show the same trend: UA-Delta3 improves off-diagonal PSNR from \OrigOffPSNR{} dB to \UAOffPSNR{} dB, a gain of \GainOffPSNR{} dB, while the matched-SNR average changes by only \GainDiagPSNR{} dB.
+Fig.~\ref{fig:psnr-heatmaps} shows that UA-D3 improves the off-diagonal region where the original checkpoint is sensitive to SNR overestimation. Table~\ref{tab:tradeoff} gives the compact trade-off view. UA-D3 increases off-diagonal PSNR by \DThreeOffGain{} dB while changing matched PSNR by only \DThreeDiagGain{} dB. Increasing the perturbation width to D6 further improves off-diagonal robustness by \DSixOffGain{} dB, but the matched-SNR loss grows to \DSixDiagGain{} dB. Independent random SNR conditioning gives the highest off-diagonal score, but its matched-SNR degradation of \RandomDiagGain{} dB indicates a different robustness--fidelity operating point rather than a direct replacement for bounded SNR-error training.
 
 \begin{table*}[t]
-\caption{Aggregate mismatch performance on CIFAR10/AWGN/C=32. Diagonal values correspond to $\gamma=\hat{\gamma}$, off-diagonal values correspond to $\gamma\ne\hat{\gamma}$, and worst values are the minimum over the full $5\times5$ mismatch matrix.}
-\label{tab:aggregate}
+\caption{AWGN SNR-mismatch trade-off on CIFAR10/C=32. D0 is reserved for the EP10 perfect-SNR fine-tuning baseline; if unavailable, it is intentionally left as TODO rather than replaced by an EP5 result.}
+\label{tab:tradeoff}
 \centering
 \scriptsize
 \begin{tabular}{lrrrrrr}
 \toprule
-Method & Matched PSNR & Off-diag. PSNR & Worst PSNR & Matched MS-SSIM(dB) & Off-diag. MS-SSIM(dB) & Worst MS-SSIM(dB)\\
+Method & Matched PSNR & Off-diag. PSNR & Worst PSNR & $\Delta$ matched & $\Delta$ off-diag. & Off-diag. MS-dB\\
 \midrule
-\input{table_aggregate_rows}
+\input{table_tradeoff_rows}
 \bottomrule
 \end{tabular}
 \end{table*}
 
 \begin{table}[t]
-\caption{Gains over the original checkpoint.}
-\label{tab:gains}
+\caption{Rayleigh check on CIFAR10/C=32.}
+\label{tab:rayleigh}
 \centering
 \scriptsize
-\begin{tabular}{lrrrr}
+\begin{tabular}{lrrrrr}
 \toprule
-Method & Off. PSNR & Worst PSNR & Off. MS-dB & Worst MS-dB\\
+Method & Matched & Off-diag. & Worst & Off. gain & Off. MS-dB\\
 \midrule
-\input{table_gain_rows}
+\input{table_rayleigh_rows}
 \bottomrule
 \end{tabular}
 \end{table}
 
-The variants show different robustness trade-offs. UA-Delta3 gives the strongest average off-diagonal result, improving off-diagonal MS-SSIM(dB) by \GainOffMSSSIM{} dB. Cons-UA preserves the matched-SNR diagonal best among the imperfect-CSI variants, consistent with its reconstruction-stability penalty. Tail+Cons-UA gives the best worst-case robustness, improving worst-case PSNR by \TailConsWorstPSNRGain{} dB and worst-case MS-SSIM(dB) by \TailConsWorstMSSSIMGain{} dB over the original checkpoint. These results support using UA as the main method and treating tail/consistency losses as robustness-oriented ablations rather than uniformly superior replacements.
-
-\input{figures/fig3_aggregate_bars}
-\input{figures/fig4_msssim_heatmaps}
-
-Table~\ref{tab:cases} lists the largest UA-Delta3 PSNR gains. The most prominent case is $\gamma=1$ dB and $\hat{\gamma}=7$ dB, where PSNR improves by 4.7989 dB. This is a practically important mismatch direction: the modulation network is conditioned on an overoptimistic SNR while the physical channel is poor.
-
-\begin{table}[t]
-\caption{Representative off-diagonal PSNR gains of UA-Delta3.}
-\label{tab:cases}
-\centering
-\scriptsize
-\begin{tabular}{rrrrr}
-\toprule
-$\gamma$ & $\hat{\gamma}$ & Original & UA & Gain\\
-\midrule
-\input{representative_cases_rows}
-\bottomrule
-\end{tabular}
-\end{table}
-
-The current evidence is intentionally bounded. It establishes the mismatch behavior on CIFAR10/AWGN/C=32 and one random seed. Rayleigh fading, high-resolution images, multiple CBR settings, repeated seeds, and $\Delta$ ablations remain necessary before making broader deployment claims.
+The Rayleigh check in Table~\ref{tab:rayleigh} gives a preliminary indication that the same SNR-mismatch training idea is not limited to AWGN, with an off-diagonal PSNR gain of \RayleighOffGain{} dB. This result is reported as an additional channel check, not as a comprehensive fading-channel study.
 
 \section{Conclusion}
 
-This letter reformulates adaptive SwinJSCC for imperfect CSI by separating the physical SNR from the estimated SNR used by Channel ModNet. The resulting UA training objective aligns the optimization distribution with bounded SNR estimation errors. On CIFAR10/AWGN/C=32, UA-Delta3 yields a 1.9164 dB off-diagonal PSNR gain with only a 0.0917 dB matched-SNR PSNR reduction, while tail-risk and consistency variants improve complementary robustness measures. Future work will extend the evaluation to fading channels, rate adaptation, high-resolution data, and repeated-seed uncertainty analysis.
+This letter revisits adaptive SwinJSCC under SNR estimation mismatch. By decoupling the true physical SNR from the estimated SNR used by Channel ModNet, UA training aligns the training objective with bounded SNR errors. On CIFAR10/AWGN/C=32, UA-D3 provides a favorable operating point, improving off-diagonal PSNR by 1.92 dB with only 0.09 dB matched-SNR loss. Wider perturbations and random SNR conditioning reveal stronger robustness at larger matched-SNR cost. Future work will extend the evaluation to high-resolution images, rate adaptation, and broader fading-channel conditions.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}

@@ -1,9 +1,7 @@
-"""Generate paper tables and figures from real CIFAR10/AWGN/C=32 CSV results."""
+"""Generate CL paper tables and figures from real mismatch CSV results."""
 
 from __future__ import annotations
 
-import csv
-import math
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -15,46 +13,48 @@ ROOT = Path(__file__).resolve().parents[1]
 LATEX_DIR = ROOT / "latex"
 FIG_DIR = LATEX_DIR / "figures"
 DATA_DIR = ROOT / "mismatch_results"
-
 SNRS = [1, 4, 7, 10, 13]
 
-METHODS = [
-    ("Original", "Original", "original_cifar10_awgn_C32_msssim_cpu.csv"),
-    ("UA", "UA-Delta3", "ua_delta3_cifar10_awgn_C32_msssim_cpu.csv"),
-    ("Tail", "Tail-UA", "tail_ua_delta3_cifar10_awgn_C32_msssim_cpu.csv"),
-    ("Cons", "Cons-UA", "cons_ua_delta3_cifar10_awgn_C32_msssim_cpu.csv"),
-    ("TailCons", "Tail+Cons-UA", "tail_cons_ua_delta3_cifar10_awgn_C32_msssim_cpu.csv"),
+plt.rcParams["svg.fonttype"] = "none"
+plt.rcParams["font.family"] = "DejaVu Sans"
+
+PRIMARY_RESULTS = [
+    ("Original", "Original", "original_cifar10_awgn_C32_msssim_cpu.csv", True),
+    ("D0", "Perfect-CSI FT (D0)", "ua-d0-eval_CIFAR10_awgn_SwinJSCC_w-SA_C32_ckpt-*_EP10_msssim_cpu.csv", False),
+    ("D1", "UA-D1", "ua-d1-eval_CIFAR10_awgn_SwinJSCC_w-SA_C32_ckpt-*_EP10_msssim_cpu.csv", True),
+    ("D3", "UA-D3", "ua_delta3_cifar10_awgn_C32_msssim_cpu.csv", True),
+    ("D6", "UA-D6", "ua-d6-eval_CIFAR10_awgn_SwinJSCC_w-SA_C32_ckpt-*_EP10_msssim_cpu.csv", True),
+    ("RandomHat", "Random-hat", "random-hat-eval_CIFAR10_awgn_SwinJSCC_w-SA_C32_ckpt-*_EP10_msssim_cpu.csv", True),
 ]
 
-COLORS = {
-    "Original": "#4E79A7",
-    "UA-Delta3": "#E15759",
-    "Tail-UA": "#59A14F",
-    "Cons-UA": "#F28E2B",
-    "Tail+Cons-UA": "#B07AA1",
-}
+RAYLEIGH_RESULTS = [
+    ("RayOrig", "Original", "rayleigh-original-eval_CIFAR10_rayleigh_SwinJSCC_w-SA_C32_ckpt-*_msssim_cpu.csv"),
+    ("RayUA", "UA-D3", "rayleigh-ua-d3-eval_CIFAR10_rayleigh_SwinJSCC_w-SA_C32_ckpt-*_EP10_msssim_cpu.csv"),
+]
 
 
-def load_results() -> dict[str, pd.DataFrame]:
-    results = {}
-    for key, _, filename in METHODS:
-        path = DATA_DIR / filename
-        if not path.exists():
-            raise FileNotFoundError(f"Missing required result CSV: {path}")
-        df = pd.read_csv(path)
-        required = {"SNR_true", "SNR_hat", "PSNR", "MS_SSIM", "MS_SSIM_dB"}
-        missing = required.difference(df.columns)
-        if missing:
-            raise ValueError(f"{path} is missing columns: {sorted(missing)}")
-        if len(df) != 25:
-            raise ValueError(f"{path} should contain a 5x5 mismatch matrix, got {len(df)} rows")
-        results[key] = df
-    return results
+def resolve_csv(pattern: str, required: bool) -> Path | None:
+    exact = DATA_DIR / pattern
+    if exact.exists():
+        return exact
+    matches = sorted(DATA_DIR.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
+    if matches:
+        return matches[0]
+    if required:
+        raise FileNotFoundError(f"Missing required result CSV matching {pattern!r} in {DATA_DIR}")
+    print(f"WARNING: missing optional result CSV matching {pattern!r}; emitting TODO row.")
+    return None
 
 
-def matrix(df: pd.DataFrame, metric: str) -> np.ndarray:
-    pivot = df.pivot(index="SNR_true", columns="SNR_hat", values=metric)
-    return pivot.loc[SNRS, SNRS].to_numpy()
+def read_result(path: Path) -> pd.DataFrame:
+    df = pd.read_csv(path)
+    required = {"SNR_true", "SNR_hat", "PSNR", "MS_SSIM", "MS_SSIM_dB"}
+    missing = required.difference(df.columns)
+    if missing:
+        raise ValueError(f"{path} is missing columns: {sorted(missing)}")
+    if len(df) != 25:
+        raise ValueError(f"{path} should contain a 5x5 mismatch matrix, got {len(df)} rows")
+    return df
 
 
 def summarize(df: pd.DataFrame) -> dict[str, float]:
@@ -70,105 +70,121 @@ def summarize(df: pd.DataFrame) -> dict[str, float]:
     }
 
 
+def matrix(df: pd.DataFrame, metric: str) -> np.ndarray:
+    pivot = df.pivot(index="SNR_true", columns="SNR_hat", values=metric)
+    return pivot.loc[SNRS, SNRS].to_numpy()
+
+
+def load_primary() -> tuple[dict[str, pd.DataFrame], dict[str, str], set[str]]:
+    data: dict[str, pd.DataFrame] = {}
+    labels: dict[str, str] = {}
+    missing: set[str] = set()
+    for key, label, pattern, required in PRIMARY_RESULTS:
+        labels[key] = label
+        path = resolve_csv(pattern, required)
+        if path is None:
+            missing.add(key)
+            continue
+        data[key] = read_result(path)
+    return data, labels, missing
+
+
+def load_rayleigh() -> tuple[dict[str, pd.DataFrame], dict[str, str]]:
+    data: dict[str, pd.DataFrame] = {}
+    labels: dict[str, str] = {}
+    for key, label, pattern in RAYLEIGH_RESULTS:
+        labels[key] = label
+        path = resolve_csv(pattern, required=False)
+        if path is not None:
+            data[key] = read_result(path)
+    return data, labels
+
+
 def fmt(value: float) -> str:
-    return f"{value:.4f}"
+    return f"{value:.2f}"
 
 
-def bold_if(value: float, best: float) -> str:
-    text = fmt(value)
-    if math.isclose(value, best, rel_tol=0.0, abs_tol=5e-5):
-        return f"\\textbf{{{text}}}"
-    return text
+def gain(value: float, reference: float) -> str:
+    return f"{value - reference:+.2f}"
 
 
-def write_tables(results: dict[str, pd.DataFrame]) -> dict[str, dict[str, float]]:
-    summaries = {key: summarize(df) for key, df in results.items()}
+def write_tradeoff_table(data: dict[str, pd.DataFrame], labels: dict[str, str], missing: set[str]) -> dict[str, dict[str, float]]:
+    summaries = {key: summarize(df) for key, df in data.items()}
     original = summaries["Original"]
-    best = {
-        metric: max(vals[metric] for vals in summaries.values())
-        for metric in ["diag_psnr", "off_psnr", "worst_psnr", "diag_msd", "off_msd", "worst_msd"]
-    }
+    rows = ["% Auto-generated by latex/generate_figures.py"]
 
-    aggregate_rows = ["% Auto-generated by latex/generate_figures.py"]
-    gain_rows = ["% Auto-generated by latex/generate_figures.py"]
-
-    for key, label, _ in METHODS:
+    for key, label, _, _ in PRIMARY_RESULTS:
+        if key in missing:
+            rows.append(f"{label} & \\multicolumn{{6}}{{c}}{{TODO: D0-EP10 CPU result missing}} \\\\")
+            continue
         vals = summaries[key]
-        aggregate_rows.append(
+        rows.append(
             " & ".join(
                 [
-                    label,
-                    bold_if(vals["diag_psnr"], best["diag_psnr"]),
-                    bold_if(vals["off_psnr"], best["off_psnr"]),
-                    bold_if(vals["worst_psnr"], best["worst_psnr"]),
-                    bold_if(vals["diag_msd"], best["diag_msd"]),
-                    bold_if(vals["off_msd"], best["off_msd"]),
-                    bold_if(vals["worst_msd"], best["worst_msd"]),
+                    labels[key],
+                    fmt(vals["diag_psnr"]),
+                    fmt(vals["off_psnr"]),
+                    fmt(vals["worst_psnr"]),
+                    gain(vals["diag_psnr"], original["diag_psnr"]),
+                    gain(vals["off_psnr"], original["off_psnr"]),
+                    fmt(vals["off_msd"]),
                 ]
             )
             + r" \\"
         )
-        if key != "Original":
-            gain_rows.append(
+    (LATEX_DIR / "table_tradeoff_rows.tex").write_text("\n".join(rows) + "\n", encoding="utf-8")
+    return summaries
+
+
+def write_rayleigh_table(data: dict[str, pd.DataFrame], labels: dict[str, str]) -> dict[str, dict[str, float]]:
+    rows = ["% Auto-generated by latex/generate_figures.py"]
+    summaries = {key: summarize(df) for key, df in data.items()}
+    if {"RayOrig", "RayUA"}.issubset(summaries):
+        orig = summaries["RayOrig"]
+        for key in ["RayOrig", "RayUA"]:
+            vals = summaries[key]
+            rows.append(
                 " & ".join(
                     [
-                        label,
-                        f"{vals['off_psnr'] - original['off_psnr']:+.4f}",
-                        f"{vals['worst_psnr'] - original['worst_psnr']:+.4f}",
-                        f"{vals['off_msd'] - original['off_msd']:+.4f}",
-                        f"{vals['worst_msd'] - original['worst_msd']:+.4f}",
+                        labels[key],
+                        fmt(vals["diag_psnr"]),
+                        fmt(vals["off_psnr"]),
+                        fmt(vals["worst_psnr"]),
+                        gain(vals["off_psnr"], orig["off_psnr"]),
+                        fmt(vals["off_msd"]),
                     ]
                 )
                 + r" \\"
             )
-
-    (LATEX_DIR / "table_aggregate_rows.tex").write_text("\n".join(aggregate_rows) + "\n", encoding="utf-8")
-    (LATEX_DIR / "table_gain_rows.tex").write_text("\n".join(gain_rows) + "\n", encoding="utf-8")
-
-    ua = summaries["UA"]
-    tail_cons = summaries["TailCons"]
-    metrics = [
-        "% Auto-generated by latex/generate_figures.py",
-        f"\\newcommand{{\\OrigOffPSNR}}{{{original['off_psnr']:.4f}}}",
-        f"\\newcommand{{\\UAOffPSNR}}{{{ua['off_psnr']:.4f}}}",
-        f"\\newcommand{{\\GainOffPSNR}}{{{ua['off_psnr'] - original['off_psnr']:.4f}}}",
-        f"\\newcommand{{\\OrigDiagPSNR}}{{{original['diag_psnr']:.4f}}}",
-        f"\\newcommand{{\\UADiagPSNR}}{{{ua['diag_psnr']:.4f}}}",
-        f"\\newcommand{{\\GainDiagPSNR}}{{{ua['diag_psnr'] - original['diag_psnr']:.4f}}}",
-        f"\\newcommand{{\\OrigOffMSSSIMdB}}{{{original['off_msd']:.4f}}}",
-        f"\\newcommand{{\\UAOffMSSSIMdB}}{{{ua['off_msd']:.4f}}}",
-        f"\\newcommand{{\\GainOffMSSSIM}}{{{ua['off_msd'] - original['off_msd']:.4f}}}",
-        f"\\newcommand{{\\GainDiagMSSSIM}}{{{ua['diag_msd'] - original['diag_msd']:.4f}}}",
-        f"\\newcommand{{\\TailConsWorstPSNRGain}}{{{tail_cons['worst_psnr'] - original['worst_psnr']:.4f}}}",
-        f"\\newcommand{{\\TailConsWorstMSSSIMGain}}{{{tail_cons['worst_msd'] - original['worst_msd']:.4f}}}",
-        "",
-    ]
-    (LATEX_DIR / "generated_metrics.tex").write_text("\n".join(metrics), encoding="utf-8")
+    else:
+        rows.append("\\multicolumn{6}{c}{Rayleigh CPU results unavailable} \\\\")
+    (LATEX_DIR / "table_rayleigh_rows.tex").write_text("\n".join(rows) + "\n", encoding="utf-8")
     return summaries
 
 
-def write_case_table(results: dict[str, pd.DataFrame]) -> None:
-    orig = results["Original"]
-    ua = results["UA"]
-    merged = orig.merge(ua, on=["SNR_true", "SNR_hat", "SNR_error", "C"], suffixes=("_orig", "_ua"))
-    merged = merged[merged["SNR_true"] != merged["SNR_hat"]].copy()
-    merged["gain"] = merged["PSNR_ua"] - merged["PSNR_orig"]
-    merged = merged.sort_values("gain", ascending=False).head(5)
-    rows = ["% Auto-generated by latex/generate_figures.py"]
-    for row in merged.itertuples(index=False):
-        rows.append(
-            f"{int(row.SNR_true)} & {int(row.SNR_hat)} & "
-            f"{row.PSNR_orig:.4f} & {row.PSNR_ua:.4f} & +{row.gain:.4f} \\\\"
-        )
-    (LATEX_DIR / "representative_cases_rows.tex").write_text("\n".join(rows) + "\n", encoding="utf-8")
+def write_metrics(primary: dict[str, dict[str, float]], rayleigh: dict[str, dict[str, float]]) -> None:
+    orig = primary["Original"]
+    d3 = primary["D3"]
+    d6 = primary["D6"]
+    rand = primary["RandomHat"]
+    lines = [
+        "% Auto-generated by latex/generate_figures.py",
+        f"\\newcommand{{\\DThreeOffGain}}{{{d3['off_psnr'] - orig['off_psnr']:.2f}}}",
+        f"\\newcommand{{\\DThreeDiagGain}}{{{d3['diag_psnr'] - orig['diag_psnr']:.2f}}}",
+        f"\\newcommand{{\\DSixOffGain}}{{{d6['off_psnr'] - orig['off_psnr']:.2f}}}",
+        f"\\newcommand{{\\DSixDiagGain}}{{{d6['diag_psnr'] - orig['diag_psnr']:.2f}}}",
+        f"\\newcommand{{\\RandomOffGain}}{{{rand['off_psnr'] - orig['off_psnr']:.2f}}}",
+        f"\\newcommand{{\\RandomDiagGain}}{{{rand['diag_psnr'] - orig['diag_psnr']:.2f}}}",
+    ]
+    if {"RayOrig", "RayUA"}.issubset(rayleigh):
+        lines.append(f"\\newcommand{{\\RayleighOffGain}}{{{rayleigh['RayUA']['off_psnr'] - rayleigh['RayOrig']['off_psnr']:.2f}}}")
+    else:
+        lines.append("\\newcommand{\\RayleighOffGain}{TODO}")
+    lines.append("")
+    (LATEX_DIR / "generated_metrics.tex").write_text("\n".join(lines), encoding="utf-8")
 
 
-def save_all_formats(fig: plt.Figure, stem: str) -> None:
-    for ext in ["pdf", "png", "svg"]:
-        fig.savefig(FIG_DIR / f"{stem}.{ext}", bbox_inches="tight", dpi=450)
-
-
-def setup_axes(ax: plt.Axes) -> None:
+def setup_heatmap_axes(ax: plt.Axes) -> None:
     ax.set_xticks(np.arange(len(SNRS)))
     ax.set_xticklabels(SNRS)
     ax.set_yticks(np.arange(len(SNRS)))
@@ -177,119 +193,79 @@ def setup_axes(ax: plt.Axes) -> None:
     ax.set_ylabel(r"True SNR $\gamma$ (dB)")
 
 
-def annotate_heatmap(ax: plt.Axes, values: np.ndarray, color_threshold: float) -> None:
+def annotate_values(ax: plt.Axes, values: np.ndarray, gain_mode: bool, threshold: float = 25.0) -> None:
     for i in range(values.shape[0]):
         for j in range(values.shape[1]):
-            color = "white" if values[i, j] < color_threshold else "black"
-            ax.text(j, i, f"{values[i, j]:.1f}", ha="center", va="center", fontsize=6.5, color=color)
+            if gain_mode:
+                label = f"{values[i, j]:+.1f}"
+                if "." not in label:
+                    raise ValueError(f"Gain label lost decimal point: {label}")
+                color = "black"
+            else:
+                label = f"{values[i, j]:.1f}"
+                color = "white" if values[i, j] < threshold else "black"
+            ax.text(j, i, label, ha="center", va="center", fontsize=6.4, color=color)
 
 
-def plot_heatmaps(results: dict[str, pd.DataFrame], metric: str, stem: str, colorbar_label: str) -> None:
-    orig = matrix(results["Original"], metric)
-    ua = matrix(results["UA"], metric)
-    gain = ua - orig
+def plot_psnr_heatmap(data: dict[str, pd.DataFrame]) -> None:
+    orig = matrix(data["Original"], "PSNR")
+    d3 = matrix(data["D3"], "PSNR")
+    diff = d3 - orig
+    if np.any(np.abs(diff) >= 10):
+        raise ValueError("Unexpected gain magnitude >= 10 dB; check heatmap labels before export.")
 
-    fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.35), constrained_layout=True)
-    vmin = min(orig.min(), ua.min())
-    vmax = max(orig.max(), ua.max())
-    threshold = vmin + 0.45 * (vmax - vmin)
+    fig, axes = plt.subplots(1, 3, figsize=(7.15, 2.25), constrained_layout=True)
+    vmin = min(orig.min(), d3.min())
+    vmax = max(orig.max(), d3.max())
+    text_threshold = vmin + 0.45 * (vmax - vmin)
 
-    for ax, data, title in [
-        (axes[0], orig, "Original"),
-        (axes[1], ua, "UA-Delta3"),
-    ]:
-        im = ax.imshow(data, cmap="viridis", vmin=vmin, vmax=vmax)
+    for ax, values, title in [(axes[0], orig, "Original"), (axes[1], d3, "UA-D3")]:
+        im = ax.imshow(values, cmap="viridis", vmin=vmin, vmax=vmax)
         ax.set_title(title, fontsize=9)
-        setup_axes(ax)
-        annotate_heatmap(ax, data, threshold)
-    fig.colorbar(im, ax=axes[:2], shrink=0.82, pad=0.015, label=colorbar_label)
+        setup_heatmap_axes(ax)
+        annotate_values(ax, values, gain_mode=False, threshold=text_threshold)
+    fig.colorbar(im, ax=axes[:2], shrink=0.82, pad=0.015, label="PSNR (dB)")
 
-    gmax = max(abs(gain.min()), abs(gain.max()))
-    im_gain = axes[2].imshow(gain, cmap="RdBu_r", vmin=-gmax, vmax=gmax)
-    axes[2].set_title("UA - Original", fontsize=9)
-    setup_axes(axes[2])
-    for i in range(gain.shape[0]):
-        for j in range(gain.shape[1]):
-            axes[2].text(j, i, f"{gain[i, j]:+.1f}", ha="center", va="center", fontsize=6.5, color="black")
+    gmax = max(abs(diff.min()), abs(diff.max()))
+    im_gain = axes[2].imshow(diff, cmap="RdBu_r", vmin=-gmax, vmax=gmax)
+    axes[2].set_title("UA-D3 - Original", fontsize=9)
+    setup_heatmap_axes(axes[2])
+    annotate_values(axes[2], diff, gain_mode=True)
     fig.colorbar(im_gain, ax=axes[2], shrink=0.82, pad=0.015, label="Gain (dB)")
-    save_all_formats(fig, stem)
+
+    for ext in ["pdf", "png", "svg"]:
+        fig.savefig(FIG_DIR / f"fig2_psnr_heatmaps.{ext}", bbox_inches="tight", dpi=450)
     plt.close(fig)
+    svg_path = FIG_DIR / "fig2_psnr_heatmaps.svg"
+    svg_text = svg_path.read_text(encoding="utf-8")
+    svg_path.write_text("\n".join(line.rstrip() for line in svg_text.splitlines()) + "\n", encoding="utf-8")
 
-
-def plot_aggregate(summaries: dict[str, dict[str, float]]) -> None:
-    labels = [label for _, label, _ in METHODS]
-    x = np.arange(len(labels))
-    width = 0.34
-
-    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.6), constrained_layout=True)
-    for ax, off_key, worst_key, title, ylabel in [
-        (axes[0], "off_psnr", "worst_psnr", "PSNR robustness", "PSNR (dB)"),
-        (axes[1], "off_msd", "worst_msd", "MS-SSIM(dB) robustness", "MS-SSIM(dB)"),
-    ]:
-        off_vals = [summaries[key][off_key] for key, _, _ in METHODS]
-        worst_vals = [summaries[key][worst_key] for key, _, _ in METHODS]
-        ax.bar(x - width / 2, off_vals, width, label="Off-diagonal avg.", color="#4E79A7")
-        ax.bar(x + width / 2, worst_vals, width, label="Worst case", color="#E15759")
-        ax.set_title(title, fontsize=9)
-        ax.set_ylabel(ylabel)
-        ax.set_xticks(x)
-        ax.set_xticklabels(labels, rotation=25, ha="right", fontsize=7)
-        ax.grid(axis="y", linestyle=":", linewidth=0.5, alpha=0.7)
-        ax.legend(fontsize=7, frameon=False)
-    save_all_formats(fig, "fig3_aggregate_bars")
-    plt.close(fig)
-
-
-def write_figure_wrappers() -> None:
-    wrappers = {
-        "fig2_psnr_heatmaps.tex": (
-            "figure*",
-            "fig2_psnr_heatmaps.pdf",
-            "PSNR mismatch heatmaps on CIFAR10/AWGN/C=32. Rows denote the true physical SNR $\\gamma$, columns denote the estimated modulation SNR $\\hat{\\gamma}$, and entries are in dB. The right panel reports the cell-wise UA-Delta3 gain over the original SwinJSCC checkpoint.",
-            "fig:psnr-heatmaps",
-            "\\textwidth",
-        ),
-        "fig3_aggregate_bars.tex": (
-            "figure*",
-            "fig3_aggregate_bars.pdf",
-            "Aggregate robustness comparison across the original checkpoint and imperfect-CSI training variants. Off-diagonal averages characterize average mismatch robustness, while worst-case values characterize the weakest SNR pair in the matrix.",
-            "fig:aggregate-bars",
-            "\\textwidth",
-        ),
-        "fig4_msssim_heatmaps.tex": (
-            "figure*",
-            "fig4_msssim_heatmaps.pdf",
-            "MS-SSIM(dB) mismatch heatmaps on CIFAR10/AWGN/C=32. The pattern is consistent with PSNR: UA-Delta3 improves most off-diagonal regions while slightly reducing the matched-SNR diagonal average.",
-            "fig:msssim-heatmaps",
-            "\\textwidth",
-        ),
-    }
-    for filename, (env, image, caption, label, width) in wrappers.items():
-        text = "\n".join(
-            [
-                "% Auto-generated by latex/generate_figures.py",
-                f"\\begin{{{env}}}[t]",
-                "\\centering",
-                f"\\includegraphics[width={width}]{{figures/{Path(image).stem}}}",
-                f"\\caption{{{caption}}}",
-                f"\\label{{{label}}}",
-                f"\\end{{{env}}}",
-                "",
-            ]
-        )
-        (FIG_DIR / filename).write_text(text, encoding="utf-8")
+    wrapper = "\n".join(
+        [
+            "% Auto-generated by latex/generate_figures.py",
+            "\\begin{figure*}[t]",
+            "\\centering",
+            "\\includegraphics[width=\\textwidth]{figures/fig2_psnr_heatmaps}",
+            "\\caption{PSNR heatmaps under SNR mismatch on CIFAR10/AWGN/C=32. Rows denote the true physical SNR $\\gamma$, columns denote the estimated modulation SNR $\\hat{\\gamma}$, and the right panel reports the UA-D3 gain over the original checkpoint.}",
+            "\\label{fig:psnr-heatmaps}",
+            "\\end{figure*}",
+            "",
+        ]
+    )
+    (FIG_DIR / "fig2_psnr_heatmaps.tex").write_text(wrapper, encoding="utf-8")
 
 
 def main() -> None:
     FIG_DIR.mkdir(parents=True, exist_ok=True)
-    results = load_results()
-    summaries = write_tables(results)
-    write_case_table(results)
-    plot_heatmaps(results, "PSNR", "fig2_psnr_heatmaps", "PSNR (dB)")
-    plot_aggregate(summaries)
-    plot_heatmaps(results, "MS_SSIM_dB", "fig4_msssim_heatmaps", "MS-SSIM(dB)")
-    write_figure_wrappers()
-    print(f"Generated paper assets in {FIG_DIR}")
+    primary_data, primary_labels, missing = load_primary()
+    rayleigh_data, rayleigh_labels = load_rayleigh()
+    primary_summary = write_tradeoff_table(primary_data, primary_labels, missing)
+    rayleigh_summary = write_rayleigh_table(rayleigh_data, rayleigh_labels)
+    write_metrics(primary_summary, rayleigh_summary)
+    plot_psnr_heatmap(primary_data)
+    if "D0" in missing:
+        print("TODO: D0-EP10 CPU CSV is missing. Do not use D0-EP5 as the formal perfect-CSI fine-tuning baseline.")
+    print(f"Generated CL paper assets in {FIG_DIR}")
 
 
 if __name__ == "__main__":
