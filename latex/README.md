@@ -1,31 +1,43 @@
-# LaTeX Letter Draft
+# LaTeX Communication Letters Draft
 
-This directory contains an IEEE Communications Letters-style LaTeX draft generated from the local imperfect-CSI SwinJSCC manuscript and real CIFAR10/AWGN/C=32 CSV results.
+This directory contains an IEEE Communications Letters-style LaTeX manuscript for the imperfect-CSI SwinJSCC project. The current draft uses only real CIFAR10/AWGN/C=32 CSV results copied into `mismatch_results/`.
 
-## Files
+## Main Files
 
-- `main.tex`: main IEEEtran manuscript.
-- `references.bib`: BibTeX references.
-- `generated_metrics.tex`: metrics generated from real CSV files.
-- `representative_cases_rows.tex`: representative case table rows generated from real CSV files.
-- `generate_figures.py`: standard-library script that regenerates TikZ data figures.
-- `figures/fig1_framework.tex`: manually written model framework diagram.
-- `figures/fig2_mismatch_heatmaps.tex`: generated PSNR heatmaps.
-- `figures/fig3_aggregate_tradeoff.tex`: generated aggregate trade-off chart.
-- `figures/fig4_representative_gains.tex`: generated representative gains chart.
+- `main.tex`: full manuscript.
+- `references.bib`: IEEE-style bibliography.
+- `generate_figures.py`: regenerates result tables and figure assets.
+- `generated_metrics.tex`: generated scalar metric macros.
+- `table_aggregate_rows.tex`: generated rows for the main aggregate table.
+- `table_gain_rows.tex`: generated rows for gains over the original checkpoint.
+- `representative_cases_rows.tex`: generated representative mismatch case rows.
 
-## Regenerate Figures
+## Figures
+
+- `figures/fig1_framework.tex`: native TikZ model framework diagram.
+- `figures/fig2_psnr_heatmaps.{pdf,png,svg}` and `.tex`: PSNR mismatch heatmaps.
+- `figures/fig3_aggregate_bars.{pdf,png,svg}` and `.tex`: aggregate robustness chart.
+- `figures/fig4_msssim_heatmaps.{pdf,png,svg}` and `.tex`: MS-SSIM(dB) mismatch heatmaps.
+
+Older generated TikZ fragments are retained for traceability but are not used by the current `main.tex`.
+
+## Data Sources
+
+The manuscript tables and plots are generated from:
+
+- `mismatch_results/original_cifar10_awgn_C32_msssim_cpu.csv`
+- `mismatch_results/ua_delta3_cifar10_awgn_C32_msssim_cpu.csv`
+- `mismatch_results/tail_ua_delta3_cifar10_awgn_C32_msssim_cpu.csv`
+- `mismatch_results/cons_ua_delta3_cifar10_awgn_C32_msssim_cpu.csv`
+- `mismatch_results/tail_cons_ua_delta3_cifar10_awgn_C32_msssim_cpu.csv`
+
+## Regenerate Assets
 
 From the repository root:
 
 ```powershell
 python latex\generate_figures.py
 ```
-
-The script uses:
-
-- `mismatch_results/original_cifar10_awgn_C32_msssim_cpu.csv`
-- `mismatch_results/ua_delta3_cifar10_awgn_C32_msssim_cpu.csv`
 
 ## Compile
 
@@ -38,4 +50,4 @@ pdflatex main.tex
 pdflatex main.tex
 ```
 
-If `IEEEtran.cls` is unavailable locally, install the IEEEtran LaTeX package through the TeX distribution before compiling.
+The current local machine used for this edit does not expose `pdflatex` or `bibtex`; compilation should be run on a machine with a TeX distribution installed.

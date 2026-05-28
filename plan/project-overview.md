@@ -6,8 +6,8 @@
 - Discipline: semantic communication, with a technical focus on Deep JSCC image transmission
 - Tentative title: Imperfect-CSI SwinJSCC: Robust Semantic Image Transmission under SNR Mismatch
 - Language: English manuscript body
-- Output format: Markdown
-- Current stage: brainstorming completed, full draft requested
+- Output format: LaTeX manuscript plus generated PDF/PNG/SVG figure assets
+- Current stage: Communication Letters-style LaTeX redraft with full CIFAR10/AWGN/C=32 result integration
 
 ## Research Positioning
 

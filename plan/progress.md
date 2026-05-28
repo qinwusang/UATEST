@@ -42,3 +42,24 @@
 - Method: robust training samples multiple estimated SNRs for the same true SNR, optimizes mean reconstruction loss plus top-tail mismatch loss, and optionally adds reconstruction consistency regularization.
 - Experiment guide: `plan/robust-training.md`.
 - Checks: `python -m py_compile main.py net/network.py`.
+
+## 2026-05-28 - LaTeX CL Manuscript Redraft with Full Results
+
+- Status: drafted
+- User request: start writing the paper using all available results.
+- Stage: S3/S4, experiment-result integration and full LaTeX drafting.
+- Architecture: `plan/chapter-architecture.md`.
+- Task packet: `plan/task-packets/2026-05-28-latex-letter-redraft.md`.
+- Output: `latex/main.tex` rewritten as a Communication Letters-style manuscript with Abstract, Index Terms, I--V sections, formulas, Fig. 1--4, and two result tables.
+- Data copied into `mismatch_results/`: Original, UA-Delta3, Tail-UA, Cons-UA, and Tail+Cons-UA CPU MS-SSIM CSV files.
+- Generated assets: `latex/table_aggregate_rows.tex`, `latex/table_gain_rows.tex`, `latex/representative_cases_rows.tex`, `latex/figures/fig2_psnr_heatmaps.{pdf,png,svg}`, `latex/figures/fig3_aggregate_bars.{pdf,png,svg}`, and `latex/figures/fig4_msssim_heatmaps.{pdf,png,svg}`.
+- Key result: UA-Delta3 gives the best off-diagonal average gain; Tail+Cons-UA gives the best worst-case gain. Tail/consistency variants are described as robustness ablations, not uniformly superior methods.
+- Checks: `python latex\generate_figures.py`; `python -m py_compile latex\generate_figures.py`; all `\input{}` targets in `latex/main.tex` exist. Local `pdflatex`/`bibtex` are not installed, so PDF compilation was not run here.
+
+### Capability-use audit
+
+- Required skills: `paper-orchestration`, `latex-output`, `figures-python`.
+- Skills actually used: same three skills, with the workflow adapted to the existing local LaTeX draft.
+- Inputs consumed: five CPU MS-SSIM CSV files, existing LaTeX draft, existing framework figure, result summaries, and experiment manual.
+- Inputs not used and why: old `main.py` mismatch CSV files are not used as primary table evidence because their MS-SSIM fields are incomplete or inconsistent with CPU evaluation.
+- Artifacts produced: full LaTeX draft, generated figures/tables, copied normalized result CSVs, architecture file, task packet, README update, and data manifest update.

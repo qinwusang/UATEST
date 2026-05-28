@@ -43,14 +43,26 @@
 - Path: `mismatch_results/ua_delta3_cifar10_awgn_C32_msssim_cpu.csv`
 - Supports: UA model PSNR and MS-SSIM values over the same mismatch matrix.
 
+## Source E6b: Robust variant checkpoint results
+
+- Paths:
+  - `mismatch_results/tail_ua_delta3_cifar10_awgn_C32_msssim_cpu.csv`
+  - `mismatch_results/cons_ua_delta3_cifar10_awgn_C32_msssim_cpu.csv`
+  - `mismatch_results/tail_cons_ua_delta3_cifar10_awgn_C32_msssim_cpu.csv`
+- Supports: Tail-UA, Cons-UA, and Tail+Cons-UA PSNR/MS-SSIM values over the same CIFAR10/AWGN/C32 mismatch matrix.
+- Allowed claim: robust variants provide complementary trade-offs; UA-Delta3 is best on average off-diagonal PSNR/MS-SSIM(dB), while Tail+Cons-UA is best on worst-case PSNR/MS-SSIM(dB).
+- Boundary: these are single-seed CIFAR10/AWGN/C32 results, not broad channel or dataset conclusions.
+
 ## Derived Result Summary
 
 - Off-diagonal average PSNR: original 29.8782 dB, UA 31.7947 dB, improvement 1.9164 dB.
 - Diagonal average PSNR: original 34.9688 dB, UA 34.8771 dB, difference -0.0917 dB.
 - Largest observed PSNR gain: +4.7989 dB at `SNR_true=1`, `SNR_hat=7`.
-- Average off-diagonal MS-SSIM gain: +0.0290.
+- Average off-diagonal MS-SSIM(dB): original 15.9684 dB, UA 17.9652 dB, improvement 1.9969 dB.
+- Tail+Cons-UA worst-case PSNR gain: +0.9892 dB.
+- Tail+Cons-UA worst-case MS-SSIM(dB) gain: +0.7530 dB.
 
-These derived values are computed from E5 and E6.
+These derived values are computed from E5, E6, and E6b.
 
 ## Source E7: Communication Letters format
 
@@ -67,7 +79,7 @@ These derived values are computed from E5 and E6.
 
 - Paths: `figures/heatmap-plan.md`, `figures/reconstruction-plan.md`
 - Supports: planned Fig. 2 original mismatch heatmap, Fig. 3 UA gain heatmap, and Fig. 4 qualitative reconstruction comparison.
-- Boundary: Fig. 2 and Fig. 3 have real CSV data but still need exported figures; Fig. 4 requires a visualization rerun to avoid checkpoint mixing.
+- Boundary: LaTeX Fig. 2--4 now use generated data plots; a qualitative reconstruction figure still requires a visualization rerun to avoid checkpoint mixing.
 
 ## Current Evidence Gaps
 
@@ -76,8 +88,7 @@ These derived values are computed from E5 and E6.
 - [TODO-RUN] conservative SNR conditioning baseline.
 - [TODO-RUN] no-SA/no-Channel-ModNet baseline if compatible checkpoint exists.
 - [TODO-RUN] repeated seeds.
-- [TODO-FIG] vector heatmaps and qualitative reconstruction figure.
-- [TODO-CHECK] exact UA fine-tuning epoch and command.
+- [TODO-FIG] qualitative reconstruction figure.
 
 ## Added Reference Evidence
 

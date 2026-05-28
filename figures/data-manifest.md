@@ -19,9 +19,17 @@ Available data files:
 |---|---|---|
 | `mismatch_results/original_cifar10_awgn_C32_msssim_cpu.csv` | Original PSNR/MS-SSIM matrix and Fig. 2 | Real local data |
 | `mismatch_results/ua_delta3_cifar10_awgn_C32_msssim_cpu.csv` | UA PSNR/MS-SSIM matrix and Fig. 3 | Real local data |
+| `mismatch_results/tail_ua_delta3_cifar10_awgn_C32_msssim_cpu.csv` | Tail-UA aggregate table and robustness comparison | Real local data |
+| `mismatch_results/cons_ua_delta3_cifar10_awgn_C32_msssim_cpu.csv` | Cons-UA aggregate table and robustness comparison | Real local data |
+| `mismatch_results/tail_cons_ua_delta3_cifar10_awgn_C32_msssim_cpu.csv` | Tail+Cons-UA aggregate table and robustness comparison | Real local data |
 | `mismatch_results/CIFAR10_awgn_SwinJSCC_w-_SA_C32_mismatch.csv` | GPU PSNR mismatch matrix and possible consistency check | Real local data |
 | `figures/model-framework.mmd` | Fig. 1 framework diagram | Diagram source |
 | `latex/generated_metrics.tex` | LaTeX aggregate metric macros | Generated from real CSV |
 | `latex/representative_cases_rows.tex` | LaTeX representative case table rows | Generated from real CSV |
+| `latex/table_aggregate_rows.tex` | LaTeX rows for five-method aggregate table | Generated from real CSV |
+| `latex/table_gain_rows.tex` | LaTeX rows for gains over original checkpoint | Generated from real CSV |
+| `latex/figures/fig2_psnr_heatmaps.{pdf,png,svg}` | PSNR mismatch heatmaps | Generated from real CSV |
+| `latex/figures/fig3_aggregate_bars.{pdf,png,svg}` | Aggregate PSNR/MS-SSIM robustness chart | Generated from real CSV |
+| `latex/figures/fig4_msssim_heatmaps.{pdf,png,svg}` | MS-SSIM(dB) mismatch heatmaps | Generated from real CSV |
 
 Captions should describe the measured SNR mismatch condition, not claim general robustness beyond CIFAR10/AWGN/C=32.

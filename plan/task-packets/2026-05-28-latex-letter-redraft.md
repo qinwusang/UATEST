@@ -1,0 +1,46 @@
+# Task Packet
+
+- Scope: Redraft the current LaTeX paper into an IEEE Communications Letters-style manuscript using all completed CIFAR10/AWGN/C=32 CPU MS-SSIM results.
+- Files to read:
+  - `latex/main.tex`
+  - `latex/references.bib`
+  - `latex/generate_figures.py`
+  - `mismatch_results/*.csv`
+  - `plan/experiment-manual-zh.md`
+  - `plan/evidence-map.md`
+- Files allowed to edit:
+  - `latex/main.tex`
+  - `latex/references.bib`
+  - `latex/README.md`
+  - `latex/generate_figures.py`
+  - `latex/generated_metrics.tex`
+  - `latex/table_aggregate_rows.tex`
+  - `latex/table_gain_rows.tex`
+  - `latex/representative_cases_rows.tex`
+  - `latex/figures/*`
+  - `figures/data-manifest.md`
+  - `plan/chapter-architecture.md`
+  - `plan/progress.md`
+- Required skills:
+  - `research-writing-assistant:paper-orchestration`
+  - `research-writing-assistant:latex-output`
+  - `research-writing-assistant:figures-python`
+- Evidence/data inputs:
+  - `mismatch_results/original_cifar10_awgn_C32_msssim_cpu.csv`
+  - `mismatch_results/ua_delta3_cifar10_awgn_C32_msssim_cpu.csv`
+  - `mismatch_results/tail_ua_delta3_cifar10_awgn_C32_msssim_cpu.csv`
+  - `mismatch_results/cons_ua_delta3_cifar10_awgn_C32_msssim_cpu.csv`
+  - `mismatch_results/tail_cons_ua_delta3_cifar10_awgn_C32_msssim_cpu.csv`
+- Required artifacts:
+  - Full LaTeX manuscript with abstract, index terms, five numbered sections, figures, tables, and references.
+  - Generated PSNR heatmaps, MS-SSIM(dB) heatmaps, aggregate bar chart, and LaTeX table rows.
+  - Updated README and data manifest.
+- Rejection checks:
+  - No unimplemented method is claimed as implemented.
+  - No numerical value is introduced unless generated from the real CSV files.
+  - Tail/consistency variants are described as robustness variants, not as uniformly superior methods.
+  - Rayleigh, Kodak, multi-CBR, and repeated-seed results remain future work.
+- Validation commands:
+  - `python latex\generate_figures.py`
+  - `python -m py_compile latex\generate_figures.py`
+  - `git diff --check -- latex plan figures mismatch_results`
