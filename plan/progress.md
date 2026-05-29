@@ -103,3 +103,23 @@
 - Artifacts produced: updated manuscript prose, regenerated trade-off rows, new auxiliary robustness table rows, updated metrics macros, updated evidence map and README.
 - Verification run: `python latex\generate_figures.py`; `python -m py_compile latex\generate_figures.py`; abstract length/input check; SVG gain-label scan; `git diff --check -- latex plan`.
 - Remaining risk: local TeX engine is still unavailable, so PDF compilation must be run on the remote server or another machine with TeX installed.
+
+## 2026-05-29 - Five-Page CL Revision
+
+- Status: completed.
+- User request: expand the CL draft toward a clearer five-page version with corrected formulas, bounded/full off-diagonal metrics, two new line figures, Rayleigh setup prose, and corrected references.
+- Stage: S3/S4, figure/table generation plus manuscript redrafting.
+- Task packet: `plan/task-packets/2026-05-29-five-page-cl-redraft.md`.
+- Main changes: `latex/main.tex` now uses complex-symbol energy normalization, per-pixel `MSE_255`, bounded off-diagonal metric `P_off^(tau)`, and a restrained Rayleigh-channel description.
+- Figure generation: `latex/generate_figures.py` now emits Fig. 3 metric-level trade-off curves and Fig. 4 method-level mismatch magnitude curves, with marker and linestyle differences.
+- Reference cleanup: Shannon now uses complete 1948 page ranges; SwinJSCC now uses final TCCN vol. 11, no. 1, pp. 90--104, 2025 metadata with DOI.
+
+### Capability-use audit
+
+- Required skills: `paper-orchestration`, `latex-output`, `figures-python`.
+- Skills actually used: same three skills, with local code/data inspection for Rayleigh channel details.
+- Inputs consumed: current LaTeX manuscript, generator script, CPU CSV result files, `net/channel.py`, and bibliography.
+- Inputs not used and why: no new training results were needed because the requested figures are derived from existing mismatch matrices.
+- Artifacts produced: updated manuscript, generated Fig. 3/Fig. 4 assets and wrappers, updated trade-off rows/metrics, corrected bibliography, data manifest, README, and task packet.
+- Verification run: `python latex\generate_figures.py`; `python -m py_compile latex\generate_figures.py`; abstract/citation/input check; forbidden-string search; SVG gain-label scan; `git diff --check -- latex figures plan`.
+- Remaining risk: local `pdflatex`/`bibtex` are unavailable, so page count and final PDF layout must be checked in a TeX environment.

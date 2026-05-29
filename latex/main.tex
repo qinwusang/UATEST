@@ -40,12 +40,13 @@ Let $\mathbf{x}\in[0,1]^{3\times H\times W}$ denote an input image and $C$ denot
 \mathbf{z}=F_{\theta}(\mathbf{x},\hat{\gamma},C),
 \label{eq:encoder}
 \end{equation}
-where $\hat{\gamma}$ is the estimated SNR supplied to Channel ModNet. Adjacent real latent components are paired into complex channel symbols, $s_k=z_{2k-1}+jz_{2k}$. The implementation normalizes these symbols as
+where $\hat{\gamma}$ is the estimated SNR supplied to Channel ModNet. Adjacent real latent components are first paired into complex symbols,
 \begin{equation}
-\mathbf{s}=\frac{\mathbf{z}_{\rm pair}}{\sqrt{2\mathbb{E}[\mathbf{z}^{2}]}},
+z_k^{\rm c}=z_{2k-1}+jz_{2k},\qquad
+s_k=\frac{z_k^{\rm c}}{\sqrt{\mathbb{E}[|z_k^{\rm c}|^2]}} ,
 \label{eq:power_norm}
 \end{equation}
-so that two real components form one unit-power complex symbol on average.
+so that the average complex-symbol energy is normalized. If the real and imaginary components are sampled from identically distributed latent entries, then $\mathbb{E}[|z_k^{\rm c}|^2]=2\mathbb{E}[z^2]$, which matches the implementation's real-valued normalization convention.
 
 For an AWGN channel with true SNR $\gamma$, the channel output is
 \begin{equation}
@@ -142,9 +143,12 @@ This observation motivates training over an error neighborhood but does not impl
 
 \section{Experimental Results}
 
-The main evaluation uses CIFAR10 over AWGN with $C=32$ and $\mathcal{S}=\{1,4,7,10,13\}$ dB. All fine-tuned models initialize from the original SwinJSCC \texttt{w/SA} CIFAR10/AWGN/C32 checkpoint and use Adam with learning rate $10^{-4}$ and batch size 256. The D0 baseline uses $\Delta=0$ and is included to separate the effect of additional perfect-SNR fine-tuning from mismatch-aware sampling. The reported mean-square error is computed on pixel values scaled to $[0,255]$, i.e.,
+\subsection{Setup and Metrics}
+
+The main evaluation uses CIFAR10 over AWGN with $C=32$ and $\mathcal{S}=\{1,4,7,10,13\}$ dB. All fine-tuned variants use the original SwinJSCC \texttt{w/SA} CIFAR10/AWGN/C32 checkpoint as initialization, the same SNR set, Adam optimizer, learning rate $10^{-4}$, and batch size 256. D1, D3, D6, and Random-hat use the same fine-tuning budget in the available results. The available D0 result is used as a perfect-SNR fine-tuning sanity check, not as a strict equal-epoch control. The reported mean-square error is computed as the per-pixel MSE on values scaled to $[0,255]$,
 \begin{equation}
-\mathrm{MSE}_{255}=\mathbb{E}\!\left[\|\mathbf{x}_{255}-\hat{\mathbf{x}}_{255}\|_2^2\right],
+\mathrm{MSE}_{255}=
+\frac{1}{3HW}\|\mathbf{x}_{255}-\hat{\mathbf{x}}_{255}\|_2^2,
 \label{eq:mse255}
 \end{equation}
 and the PSNR is
@@ -152,36 +156,59 @@ and the PSNR is
 \mathrm{PSNR}=10\log_{10}\frac{255^2}{\mathrm{MSE}_{255}}.
 \label{eq:psnr}
 \end{equation}
+The reported PSNR values are averaged over the evaluation test set.
 MS-SSIM(dB) is computed as
 \begin{equation}
 \mathrm{MS\text{-}SSIM}_{\rm dB}
 =-10\log_{10}(1-\mathrm{MS\text{-}SSIM}).
 \label{eq:msssimdb}
 \end{equation}
-For a mismatch matrix $\mathbf{P}_{i,j}=\mathrm{PSNR}(\gamma_i,\hat{\gamma}_j)$, the off-diagonal average is
+For a mismatch matrix $\mathbf{P}_{i,j}=\mathrm{PSNR}(\gamma_i,\hat{\gamma}_j)$, the full off-diagonal average is
 \begin{equation}
 \overline{P}_{\rm off}=
 \frac{1}{N(N-1)}\sum_{i\ne j}\mathbf{P}_{i,j}.
 \label{eq:offdiag}
 \end{equation}
+This is a stress-test metric because it includes severe mismatches up to 12 dB. To match bounded SNR-estimation errors, we also report
+\begin{equation}
+\overline{P}_{\rm off}^{(\tau)}=
+\frac{1}{|\Omega_{\tau}|}
+\sum_{(i,j)\in\Omega_{\tau}}\mathbf{P}_{i,j},
+\quad
+\Omega_{\tau}=\{(i,j):i\ne j, |\gamma_i-\hat{\gamma}_j|\le \tau\}.
+\label{eq:bounded_offdiag}
+\end{equation}
+In the experiments, $\tau=3$ dB corresponds to adjacent SNR-grid mismatch and to the UA-D3 training range.
+
+\subsection{AWGN Mismatch Results}
 
 \input{figures/fig2_psnr_heatmaps}
 
-Fig.~\ref{fig:psnr-heatmaps} shows that UA-D3 improves the off-diagonal region where the original checkpoint is sensitive to SNR overestimation. Table~\ref{tab:tradeoff} gives the compact trade-off view. Perfect-SNR fine-tuning alone changes off-diagonal PSNR by only \DZeroOffGain{} dB, which indicates that the main robustness gain is not explained by additional optimization alone. UA-D3 increases off-diagonal PSNR by \DThreeOffGain{} dB while changing matched PSNR by only \DThreeDiagGain{} dB. Increasing the perturbation width to D6 further improves off-diagonal robustness by \DSixOffGain{} dB, but the matched-SNR loss grows to \DSixDiagGain{} dB. Independent random SNR conditioning gives the highest off-diagonal score, but its matched-SNR degradation of \RandomDiagGain{} dB indicates a different robustness--fidelity operating point rather than a direct replacement for bounded SNR-error training.
+Fig.~\ref{fig:psnr-heatmaps} shows that UA-D3 improves the off-diagonal region where the original checkpoint is sensitive to SNR overestimation. Table~\ref{tab:tradeoff} gives the compact trade-off view. Perfect-SNR fine-tuning changes bounded off-diagonal PSNR by only \DZeroBoundedGain{} dB and full off-diagonal PSNR by \DZeroOffGain{} dB, which indicates that the main robustness gain is not explained by perfect-SNR fine-tuning alone. UA-D3 increases bounded off-diagonal PSNR by \DThreeBoundedGain{} dB and full off-diagonal PSNR by \DThreeOffGain{} dB while changing matched PSNR by only \DThreeDiagGain{} dB. Increasing the perturbation width to D6 further improves full off-diagonal robustness by \DSixOffGain{} dB, but the matched-SNR loss grows to \DSixDiagGain{} dB.
 
 \begin{table*}[t]
-\caption{AWGN SNR-mismatch trade-off on CIFAR10/C=32. D0 denotes perfect-SNR fine-tuning with $\Delta=0$.}
+\caption{AWGN SNR-mismatch trade-off on CIFAR10/C=32. D0 denotes perfect-SNR fine-tuning with $\Delta=0$; bounded off-diagonal uses $\tau=3$ dB.}
 \label{tab:tradeoff}
 \centering
 \scriptsize
-\begin{tabular}{lrrrrrr}
+\begin{tabular}{lrrrrrrr}
 \toprule
-Method & Matched PSNR & Off-diag. PSNR & Worst PSNR & $\Delta$ matched & $\Delta$ off-diag. & Off-diag. MS-dB\\
+Method & Matched & Bound. off & Full off & Worst & $\Delta$ bound. & $\Delta$ full & Bound. MS-dB\\
 \midrule
 \input{table_tradeoff_rows}
 \bottomrule
 \end{tabular}
 \end{table*}
+
+\input{figures/fig3_delta_tradeoff}
+
+Fig.~\ref{fig:delta-tradeoff} separates the metric trends that are compressed in Table~\ref{tab:tradeoff}. Bounded UA training first improves local mismatch robustness with little matched-SNR loss at D3, then moves toward stronger full off-diagonal and worst-case performance at D6. Random-hat gives the highest off-diagonal and worst-case scores because it makes $\hat{\gamma}$ nearly independent of $\gamma$ during training. It is therefore an upper-robustness reference rather than the recommended deployment setting, especially because it incurs a \RandomDiagGain{} dB matched-PSNR loss.
+
+\input{figures/fig4_mismatch_magnitude}
+
+Fig.~\ref{fig:mismatch-magnitude} further groups the matrix entries by $|\hat{\gamma}-\gamma|$. The figure clarifies why full off-diagonal performance should be interpreted as a stress test: the largest gains occur at high mismatch magnitudes, whereas the $\tau=3$ dB metric isolates the local regime that bounded SNR estimation is meant to model.
+
+\subsection{Auxiliary Robustness and Rayleigh Check}
 
 \begin{table}[t]
 \caption{Auxiliary robustness variants on CIFAR10/AWGN/C=32.}
@@ -211,7 +238,7 @@ Method & Matched & Off-diag. & Worst & Off. gain & Off. MS-dB\\
 \end{tabular}
 \end{table}
 
-The auxiliary variants in Table~\ref{tab:auxiliary} show that tail and consistency terms provide additional tail-oriented operating points, but they do not replace the simpler D3 result as the central average-robustness setting. For example, Tail+Cons-UA improves worst-case PSNR by \TailConsWorstGain{} dB, and the stronger tail setting reaches a \TailLtOneWorstGain{} dB worst-case gain. The Rayleigh check in Table~\ref{tab:rayleigh} further gives a preliminary indication that the same SNR-mismatch training idea is not limited to AWGN, with an off-diagonal PSNR gain of \RayleighOffGain{} dB. This result is reported as an additional channel check, not as a comprehensive fading-channel study.
+The auxiliary variants in Table~\ref{tab:auxiliary} show that tail and consistency terms provide additional tail-oriented operating points, but they do not replace the simpler D3 result as the central average-robustness setting. For example, Tail+Cons-UA improves worst-case PSNR by \TailConsWorstGain{} dB, and the stronger tail setting reaches a \TailLtOneWorstGain{} dB worst-case gain. Table~\ref{tab:rayleigh} reports an additional Rayleigh check. The implemented Rayleigh channel applies symbol-level fading coefficients and AWGN noise, with no explicit receiver-side CSI equalization. The SNR decoupling protocol follows the AWGN setting: $\gamma$ controls the physical channel noise and $\hat{\gamma}$ controls Channel ModNet. The result is a preliminary channel check, not a comprehensive fading-channel generalization claim.
 
 \section{Conclusion}
 

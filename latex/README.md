@@ -6,13 +6,15 @@ This directory contains the IEEE Communications Letters-style manuscript for the
 
 - `main.tex`: full manuscript.
 - `references.bib`: IEEE-style bibliography.
-- `generate_figures.py`: regenerates the compact result tables and PSNR heatmap.
+- `generate_figures.py`: regenerates the compact result tables, PSNR heatmap, and trade-off curves.
 - `generated_metrics.tex`: generated scalar metric macros used by the manuscript.
 - `table_tradeoff_rows.tex`: generated rows for the main AWGN SNR-mismatch trade-off table.
 - `table_auxiliary_rows.tex`: generated rows for auxiliary Tail/Consistency robustness checks.
 - `table_rayleigh_rows.tex`: generated rows for the Rayleigh check table.
 - `figures/fig1_framework.tex`: native TikZ framework diagram.
 - `figures/fig2_psnr_heatmaps.{pdf,png,svg}` and `.tex`: PSNR heatmaps used as Fig. 2.
+- `figures/fig3_delta_tradeoff.{pdf,png,svg}` and `.tex`: metric-level robustness--fidelity trade-off curve.
+- `figures/fig4_mismatch_magnitude.{pdf,png,svg}` and `.tex`: method-level mismatch-magnitude gain curve.
 
 Older figure/table fragments may remain in the directory for traceability, but the current `main.tex` uses only the files listed above.
 

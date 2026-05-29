@@ -70,6 +70,7 @@
 - Off-diagonal average PSNR: original 29.8782 dB, UA 31.7947 dB, improvement 1.9164 dB.
 - Diagonal average PSNR: original 34.9688 dB, UA 34.8771 dB, difference -0.0917 dB.
 - Perfect-SNR D0 fine-tuning off-diagonal PSNR gain over original: +0.03 dB; matched PSNR change: +0.05 dB.
+- UA-D3 bounded off-diagonal (`tau=3 dB`) PSNR gain over original: +1.09 dB.
 - UA-D6 off-diagonal PSNR gain over original: +3.11 dB; matched PSNR change: -0.36 dB.
 - Random-hat off-diagonal PSNR gain over original: +4.06 dB; matched PSNR change: -1.04 dB.
 - Rayleigh UA-D3 off-diagonal PSNR gain over Rayleigh original: +1.50 dB.
@@ -111,4 +112,4 @@ These derived values are computed from E5, E6, and E6b.
 - Attention-adaptive JSCC: Xu et al., IEEE TCSVT 2022, DOI 10.1109/TCSVT.2021.3082521.
 - NTSCC semantic communication: Dai et al., IEEE JSAC 2022, DOI 10.1109/JSAC.2022.3180802.
 - DeepSC semantic communication: Xie et al., IEEE TSP 2021, DOI 10.1109/TSP.2021.3071210.
-- SwinJSCC: Yang et al., IEEE TCCN 2024, DOI 10.1109/TCCN.2024.3424842.
+- SwinJSCC: Yang et al., IEEE TCCN 2025, vol. 11, no. 1, pp. 90--104, DOI 10.1109/TCCN.2024.3424842.

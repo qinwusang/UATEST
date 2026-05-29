@@ -14,13 +14,22 @@ LATEX_DIR = ROOT / "latex"
 FIG_DIR = LATEX_DIR / "figures"
 DATA_DIR = ROOT / "mismatch_results"
 SNRS = [1, 4, 7, 10, 13]
+BOUNDED_TAU = 3
 
 plt.rcParams["svg.fonttype"] = "none"
 plt.rcParams["font.family"] = "DejaVu Sans"
 
 PRIMARY_RESULTS = [
     ("Original", "Original", "original_cifar10_awgn_C32_msssim_cpu.csv", True),
-    ("D0", "Perfect-SNR FT (D0)", "ua-d0-eval_CIFAR10_awgn_SwinJSCC_w-SA_C32_ckpt-*_EP5_msssim_cpu.csv", True),
+    (
+        "D0",
+        "Perfect-SNR FT (D0)",
+        [
+            "ua-d0-eval_CIFAR10_awgn_SwinJSCC_w-SA_C32_ckpt-*_EP10_msssim_cpu.csv",
+            "ua-d0-eval_CIFAR10_awgn_SwinJSCC_w-SA_C32_ckpt-*_EP5_msssim_cpu.csv",
+        ],
+        True,
+    ),
     ("D1", "UA-D1", "ua-d1-eval_CIFAR10_awgn_SwinJSCC_w-SA_C32_ckpt-*_EP10_msssim_cpu.csv", True),
     ("D3", "UA-D3", "ua_delta3_cifar10_awgn_C32_msssim_cpu.csv", True),
     ("D6", "UA-D6", "ua-d6-eval_CIFAR10_awgn_SwinJSCC_w-SA_C32_ckpt-*_EP10_msssim_cpu.csv", True),
@@ -39,14 +48,46 @@ RAYLEIGH_RESULTS = [
     ("RayUA", "UA-D3", "rayleigh-ua-d3-eval_CIFAR10_rayleigh_SwinJSCC_w-SA_C32_ckpt-*_EP10_msssim_cpu.csv"),
 ]
 
+FIG3_METHODS = ["Original", "D0", "D1", "D3", "D6", "RandomHat"]
+FIG4_METHODS = ["D1", "D3", "D6", "RandomHat"]
+MAGNITUDES = [3, 6, 9, 12]
 
-def resolve_csv(pattern: str, required: bool) -> Path | None:
+COLORS = {
+    "matched": "#222222",
+    "bounded": "#0072B2",
+    "off": "#009E73",
+    "worst": "#D55E00",
+    "D1": "#0072B2",
+    "D3": "#D55E00",
+    "D6": "#009E73",
+    "RandomHat": "#CC79A7",
+}
+
+
+def _find_csv(pattern: str) -> Path | None:
     exact = DATA_DIR / pattern
     if exact.exists():
         return exact
     matches = sorted(DATA_DIR.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
     if matches:
         return matches[0]
+    return None
+
+
+def resolve_csv(pattern: str | list[str], required: bool) -> Path | None:
+    if isinstance(pattern, list):
+        for candidate in pattern:
+            path = _find_csv(candidate)
+            if path is not None:
+                return path
+        if required:
+            raise FileNotFoundError(f"Missing required result CSV matching any of {pattern!r} in {DATA_DIR}")
+        print(f"WARNING: missing optional result CSV matching any of {pattern!r}; emitting TODO row.")
+        return None
+
+    path = _find_csv(pattern)
+    if path is not None:
+        return path
     if required:
         raise FileNotFoundError(f"Missing required result CSV matching {pattern!r} in {DATA_DIR}")
     print(f"WARNING: missing optional result CSV matching {pattern!r}; emitting TODO row.")
@@ -67,11 +108,14 @@ def read_result(path: Path) -> pd.DataFrame:
 def summarize(df: pd.DataFrame) -> dict[str, float]:
     diag = df["SNR_true"].eq(df["SNR_hat"])
     off = ~diag
+    bounded = off & ((df["SNR_hat"] - df["SNR_true"]).abs() <= BOUNDED_TAU)
     return {
         "diag_psnr": df.loc[diag, "PSNR"].mean(),
+        "bounded_psnr": df.loc[bounded, "PSNR"].mean(),
         "off_psnr": df.loc[off, "PSNR"].mean(),
         "worst_psnr": df["PSNR"].min(),
         "diag_msd": df.loc[diag, "MS_SSIM_dB"].mean(),
+        "bounded_msd": df.loc[bounded, "MS_SSIM_dB"].mean(),
         "off_msd": df.loc[off, "MS_SSIM_dB"].mean(),
         "worst_msd": df["MS_SSIM_dB"].min(),
     }
@@ -126,6 +170,11 @@ def gain(value: float, reference: float) -> str:
     return f"{value - reference:+.2f}"
 
 
+def strip_svg(path: Path) -> None:
+    svg_text = path.read_text(encoding="utf-8")
+    path.write_text("\n".join(line.rstrip() for line in svg_text.splitlines()) + "\n", encoding="utf-8")
+
+
 def write_tradeoff_table(data: dict[str, pd.DataFrame], labels: dict[str, str], missing: set[str]) -> dict[str, dict[str, float]]:
     summaries = {key: summarize(df) for key, df in data.items()}
     original = summaries["Original"]
@@ -133,7 +182,7 @@ def write_tradeoff_table(data: dict[str, pd.DataFrame], labels: dict[str, str], 
 
     for key, label, _, _ in PRIMARY_RESULTS:
         if key in missing:
-            rows.append(f"{label} & \\multicolumn{{6}}{{c}}{{TODO: result CSV missing}} \\\\")
+            rows.append(f"{label} & \\multicolumn{{7}}{{c}}{{TODO: result CSV missing}} \\\\")
             continue
         vals = summaries[key]
         rows.append(
@@ -141,11 +190,12 @@ def write_tradeoff_table(data: dict[str, pd.DataFrame], labels: dict[str, str], 
                 [
                     labels[key],
                     fmt(vals["diag_psnr"]),
+                    fmt(vals["bounded_psnr"]),
                     fmt(vals["off_psnr"]),
                     fmt(vals["worst_psnr"]),
-                    gain(vals["diag_psnr"], original["diag_psnr"]),
+                    gain(vals["bounded_psnr"], original["bounded_psnr"]),
                     gain(vals["off_psnr"], original["off_psnr"]),
-                    fmt(vals["off_msd"]),
+                    fmt(vals["bounded_msd"]),
                 ]
             )
             + r" \\"
@@ -223,12 +273,16 @@ def write_metrics(
     rand = primary["RandomHat"]
     lines = [
         "% Auto-generated by latex/generate_figures.py",
+        f"\\newcommand{{\\DZeroBoundedGain}}{{{d0['bounded_psnr'] - orig['bounded_psnr']:.2f}}}",
         f"\\newcommand{{\\DZeroOffGain}}{{{d0['off_psnr'] - orig['off_psnr']:.2f}}}",
         f"\\newcommand{{\\DZeroDiagGain}}{{{d0['diag_psnr'] - orig['diag_psnr']:.2f}}}",
+        f"\\newcommand{{\\DThreeBoundedGain}}{{{d3['bounded_psnr'] - orig['bounded_psnr']:.2f}}}",
         f"\\newcommand{{\\DThreeOffGain}}{{{d3['off_psnr'] - orig['off_psnr']:.2f}}}",
         f"\\newcommand{{\\DThreeDiagGain}}{{{d3['diag_psnr'] - orig['diag_psnr']:.2f}}}",
+        f"\\newcommand{{\\DSixBoundedGain}}{{{d6['bounded_psnr'] - orig['bounded_psnr']:.2f}}}",
         f"\\newcommand{{\\DSixOffGain}}{{{d6['off_psnr'] - orig['off_psnr']:.2f}}}",
         f"\\newcommand{{\\DSixDiagGain}}{{{d6['diag_psnr'] - orig['diag_psnr']:.2f}}}",
+        f"\\newcommand{{\\RandomBoundedGain}}{{{rand['bounded_psnr'] - orig['bounded_psnr']:.2f}}}",
         f"\\newcommand{{\\RandomOffGain}}{{{rand['off_psnr'] - orig['off_psnr']:.2f}}}",
         f"\\newcommand{{\\RandomDiagGain}}{{{rand['diag_psnr'] - orig['diag_psnr']:.2f}}}",
     ]
@@ -304,9 +358,7 @@ def plot_psnr_heatmap(data: dict[str, pd.DataFrame]) -> None:
     for ext in ["pdf", "png", "svg"]:
         fig.savefig(FIG_DIR / f"fig2_psnr_heatmaps.{ext}", bbox_inches="tight", dpi=450)
     plt.close(fig)
-    svg_path = FIG_DIR / "fig2_psnr_heatmaps.svg"
-    svg_text = svg_path.read_text(encoding="utf-8")
-    svg_path.write_text("\n".join(line.rstrip() for line in svg_text.splitlines()) + "\n", encoding="utf-8")
+    strip_svg(FIG_DIR / "fig2_psnr_heatmaps.svg")
 
     wrapper = "\n".join(
         [
@@ -323,6 +375,96 @@ def plot_psnr_heatmap(data: dict[str, pd.DataFrame]) -> None:
     (FIG_DIR / "fig2_psnr_heatmaps.tex").write_text(wrapper, encoding="utf-8")
 
 
+def save_line_figure(fig: plt.Figure, stem: str) -> None:
+    for ext in ["pdf", "png", "svg"]:
+        fig.savefig(FIG_DIR / f"{stem}.{ext}", bbox_inches="tight", dpi=450)
+    plt.close(fig)
+    strip_svg(FIG_DIR / f"{stem}.svg")
+
+
+def plot_delta_tradeoff(primary: dict[str, dict[str, float]], labels: dict[str, str]) -> None:
+    x = np.arange(len(FIG3_METHODS))
+    fig, ax = plt.subplots(figsize=(3.45, 2.35), constrained_layout=True)
+
+    series = [
+        ("Matched", [primary[k]["diag_psnr"] for k in FIG3_METHODS], "-", "o", COLORS["matched"]),
+        ("Full off.", [primary[k]["off_psnr"] for k in FIG3_METHODS], "--", "s", COLORS["off"]),
+        ("Worst", [primary[k]["worst_psnr"] for k in FIG3_METHODS], "-.", "^", COLORS["worst"]),
+    ]
+    for name, values, linestyle, marker, color in series:
+        ax.plot(x, values, label=name, linestyle=linestyle, marker=marker, linewidth=1.35, markersize=4.0, color=color)
+
+    tick_labels = [labels[k].replace("Perfect-SNR FT ", "").replace("Random-hat", "Rand.") for k in FIG3_METHODS]
+    ax.set_xticks(x)
+    ax.set_xticklabels(tick_labels, rotation=25, ha="right")
+    ax.set_ylabel("PSNR (dB)")
+    ax.grid(True, alpha=0.28, linewidth=0.6)
+    ax.legend(fontsize=6.7, frameon=False, ncol=2)
+    ax.set_title("Robustness--fidelity trade-off", fontsize=9)
+    save_line_figure(fig, "fig3_delta_tradeoff")
+
+    wrapper = "\n".join(
+        [
+            "% Auto-generated by latex/generate_figures.py",
+            "\\begin{figure}[t]",
+            "\\centering",
+            "\\includegraphics[width=\\columnwidth]{figures/fig3_delta_tradeoff}",
+            "\\caption{PSNR trade-off across SNR-conditioning strategies. Line styles denote metrics, not methods.}",
+            "\\label{fig:delta-tradeoff}",
+            "\\end{figure}",
+            "",
+        ]
+    )
+    (FIG_DIR / "fig3_delta_tradeoff.tex").write_text(wrapper, encoding="utf-8")
+
+
+def magnitude_gain(df: pd.DataFrame, original: pd.DataFrame, magnitude: int) -> float:
+    merged = df.merge(
+        original[["SNR_true", "SNR_hat", "PSNR"]],
+        on=["SNR_true", "SNR_hat"],
+        suffixes=("", "_orig"),
+    )
+    mask = (merged["SNR_hat"] - merged["SNR_true"]).abs().eq(magnitude)
+    return (merged.loc[mask, "PSNR"] - merged.loc[mask, "PSNR_orig"]).mean()
+
+
+def plot_mismatch_magnitude(data: dict[str, pd.DataFrame], labels: dict[str, str]) -> None:
+    fig, ax = plt.subplots(figsize=(3.45, 2.35), constrained_layout=True)
+    original = data["Original"]
+    styles = {
+        "D1": {"linestyle": ":", "marker": "^", "linewidth": 1.35, "color": COLORS["D1"]},
+        "D3": {"linestyle": "-", "marker": "D", "linewidth": 1.9, "color": COLORS["D3"]},
+        "D6": {"linestyle": "-.", "marker": "v", "linewidth": 1.35, "color": COLORS["D6"]},
+        "RandomHat": {"linestyle": (0, (6, 3)), "marker": "x", "linewidth": 1.35, "color": COLORS["RandomHat"]},
+    }
+    for key in FIG4_METHODS:
+        values = [magnitude_gain(data[key], original, mag) for mag in MAGNITUDES]
+        ax.plot(MAGNITUDES, values, label=labels[key], markersize=4.2, **styles[key])
+
+    ax.axhline(0, color="#555555", linewidth=0.75)
+    ax.set_xticks(MAGNITUDES)
+    ax.set_xlabel("SNR mismatch magnitude (dB)")
+    ax.set_ylabel("PSNR gain over original (dB)")
+    ax.grid(True, alpha=0.28, linewidth=0.6)
+    ax.legend(fontsize=6.7, frameon=False)
+    ax.set_title("Robustness by mismatch magnitude", fontsize=9)
+    save_line_figure(fig, "fig4_mismatch_magnitude")
+
+    wrapper = "\n".join(
+        [
+            "% Auto-generated by latex/generate_figures.py",
+            "\\begin{figure}[t]",
+            "\\centering",
+            "\\includegraphics[width=\\columnwidth]{figures/fig4_mismatch_magnitude}",
+            "\\caption{Average PSNR gain over the original checkpoint at each absolute SNR mismatch magnitude. Line styles denote methods.}",
+            "\\label{fig:mismatch-magnitude}",
+            "\\end{figure}",
+            "",
+        ]
+    )
+    (FIG_DIR / "fig4_mismatch_magnitude.tex").write_text(wrapper, encoding="utf-8")
+
+
 def main() -> None:
     FIG_DIR.mkdir(parents=True, exist_ok=True)
     primary_data, primary_labels, missing = load_primary()
@@ -333,6 +475,8 @@ def main() -> None:
     rayleigh_summary = write_rayleigh_table(rayleigh_data, rayleigh_labels)
     write_metrics(primary_summary, auxiliary_summary, rayleigh_summary)
     plot_psnr_heatmap(primary_data)
+    plot_delta_tradeoff(primary_summary, primary_labels)
+    plot_mismatch_magnitude(primary_data, primary_labels)
     print(f"Generated CL paper assets in {FIG_DIR}")
 
 

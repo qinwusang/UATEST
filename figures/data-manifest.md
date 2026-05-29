@@ -10,8 +10,11 @@ No fake figures are created in this draft pass. The current figure inventory is:
 | Fig. 4 | future regenerated visualization directories; `figures/reconstruction-plan.md` | Original image, original mismatch reconstruction, UA mismatch reconstruction | [TODO-FIG] needs rerun to avoid checkpoint mixing |
 | LaTeX Fig. 1 | `latex/figures/fig1_framework.tex` | Native TikZ framework diagram for IEEEtran draft | Created |
 | LaTeX Fig. 2 | `latex/figures/fig2_psnr_heatmaps.{pdf,png,svg}` | Original PSNR, UA-D3 PSNR, and UA-D3 minus original PSNR gain heatmaps | Created from real CSV via `latex/generate_figures.py` |
-| LaTeX Table I | `latex/table_tradeoff_rows.tex` | AWGN Delta/baseline trade-off table; D0-EP10 row is TODO if the CPU CSV is absent | Created from real CSV via `latex/generate_figures.py` |
-| LaTeX Table II | `latex/table_rayleigh_rows.tex` | Rayleigh original vs UA-D3 check | Created from real CSV via `latex/generate_figures.py` |
+| LaTeX Fig. 3 | `latex/figures/fig3_delta_tradeoff.{pdf,png,svg}` | Metric-level PSNR trade-off across Original, D0, D1, D3, D6, and Random-hat | Created from real CSV via `latex/generate_figures.py` |
+| LaTeX Fig. 4 | `latex/figures/fig4_mismatch_magnitude.{pdf,png,svg}` | Method-level PSNR gain curve by absolute SNR mismatch magnitude | Created from real CSV via `latex/generate_figures.py` |
+| LaTeX Table I | `latex/table_tradeoff_rows.tex` | AWGN Delta/baseline trade-off table with bounded and full off-diagonal metrics | Created from real CSV via `latex/generate_figures.py` |
+| LaTeX Table II | `latex/table_auxiliary_rows.tex` | Tail/Consistency auxiliary robustness variants | Created from real CSV via `latex/generate_figures.py` |
+| LaTeX Table III | `latex/table_rayleigh_rows.tex` | Rayleigh original vs UA-D3 check | Created from real CSV via `latex/generate_figures.py` |
 
 Available data files:
 
@@ -34,7 +37,7 @@ Available data files:
 | `latex/table_aggregate_rows.tex` | LaTeX rows for five-method aggregate table | Generated from real CSV |
 | `latex/table_gain_rows.tex` | LaTeX rows for gains over original checkpoint | Generated from real CSV |
 | `latex/figures/fig2_psnr_heatmaps.{pdf,png,svg}` | PSNR mismatch heatmaps | Generated from real CSV |
-| `latex/figures/fig3_aggregate_bars.{pdf,png,svg}` | Aggregate PSNR/MS-SSIM robustness chart | Generated from real CSV |
-| `latex/figures/fig4_msssim_heatmaps.{pdf,png,svg}` | MS-SSIM(dB) mismatch heatmaps | Generated from real CSV |
+| `latex/figures/fig3_delta_tradeoff.{pdf,png,svg}` | Metric-level PSNR trade-off curve | Generated from real CSV |
+| `latex/figures/fig4_mismatch_magnitude.{pdf,png,svg}` | Method-level PSNR gain by mismatch magnitude | Generated from real CSV |
 
 Captions should describe the measured SNR mismatch condition, not claim general robustness beyond CIFAR10/AWGN/C=32.
