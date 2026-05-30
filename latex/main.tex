@@ -27,15 +27,15 @@ Deep joint source-channel coding, imperfect SNR estimation, semantic communicati
 
 \section{Introduction}
 
-\IEEEPARstart{D}{eep} joint source-channel coding (Deep JSCC) directly maps source samples to channel symbols and can avoid the sharp threshold behavior of separate source and channel coding under channel variation \cite{shannon1948mathematical,cover2006elements,bourtsoulatze2019deepjscc}. For wireless image transmission, recent Deep JSCC systems have incorporated feedback, bandwidth agility, OFDM transmission, attention modules, and nonlinear transform coding \cite{kurka2020deepjsccf,kurka2021bandwidth,yang2021ofdm,xu2022attention,dai2022ntscc}. These developments are closely related to semantic communications, where the recovered signal quality is optimized directly rather than through bit-level recovery alone \cite{xie2020initial,xie2021semantic}.
+\IEEEPARstart{D}{eep} joint source-channel coding (Deep JSCC) directly maps source samples to channel symbols and can avoid the sharp threshold behavior of separate source and channel coding under channel variation \cite{shannon1948mathematical,cover2006elements,bourtsoulatze2019deepjscc}. For wireless image transmission, recent Deep JSCC systems have incorporated feedback, bandwidth agility, OFDM transmission, attention modules, nonlinear transform coding, and robust bandwidth-adaptive operation \cite{kurka2020deepjsccf,kurka2021bandwidth,yang2021ofdm,xu2022attention,dai2022ntscc,bian2023deepjscclpp}. These developments are closely related to semantic communications, where the recovered signal quality is optimized directly rather than through bit-level recovery alone \cite{xie2020initial,xie2021semantic}.
 
 \textit{Positioning.}
-The present work is closer to robustness and domain-randomization methodology than to backbone design. Classical DeepJSCC establishes the end-to-end analog transmission paradigm \cite{bourtsoulatze2019deepjscc}, while adaptive variants learn to condition the encoder and decoder on channel state, rate, or feedback information \cite{kurka2020deepjsccf,kurka2021bandwidth,xu2022attention}. SwinJSCC improves this adaptive image-transmission pipeline through a Swin Transformer architecture and modulation networks \cite{liu2021swin,yang2024swinjscc}. In parallel, domain randomization trains neural systems over nuisance variations so that deployment shifts are already represented during optimization \cite{tobin2017domain,volpi2018generalizing}. Our setting is a communication-specific instance of this idea: the nuisance variable is not image style or simulated geometry, but the gap between the true physical SNR and the estimated SNR consumed by Channel ModNet.
+The present work is closer to robustness and domain-randomization methodology than to backbone design. Classical DeepJSCC establishes the end-to-end analog transmission paradigm \cite{bourtsoulatze2019deepjscc}, while adaptive variants learn to condition the encoder and decoder on channel state, rate, or feedback information \cite{kurka2020deepjsccf,kurka2021bandwidth,xu2022attention,bian2023deepjscclpp}. SwinJSCC improves this adaptive image-transmission pipeline through a Swin Transformer architecture and modulation networks \cite{liu2021swin,yang2024swinjscc}. In parallel, domain randomization trains neural systems over nuisance variations so that deployment shifts are already represented during optimization \cite{tobin2017domain,volpi2018generalizing}. Our setting is a communication-specific instance of this idea: the nuisance variable is not image style or simulated geometry, but the gap between the true physical SNR and the estimated SNR consumed by Channel ModNet.
 
 SwinJSCC extends adaptive Deep JSCC by combining a Swin Transformer backbone with modulation networks that condition latent features on the channel SNR and bandwidth ratio \cite{liu2021swin,yang2024swinjscc}. Existing evaluation, however, normally follows a perfect-SNR convention: the SNR used by Channel ModNet is the same value that determines physical channel noise. In an AWGN setting, the practical uncertainty is more precisely an SNR estimation mismatch. The estimated SNR may be biased by pilot noise, delayed feedback, or prediction error, causing the modulation network to allocate features for a different channel quality than the transmitted symbols actually experience.
 
 This letter studies this SNR-mismatched setting. The model architecture is unchanged; only the SNR interface is separated into the true physical SNR $\gamma$ and the estimated modulation SNR $\hat{\gamma}$. The contribution is not a new Transformer backbone, but a training and evaluation protocol for imperfect SNR estimation. We formulate the corresponding risk, introduce uncertainty-aware (UA) training with bounded SNR perturbations, and compare it with perfect-SNR fine-tuning, wider perturbations, independent random SNR conditioning, and a Rayleigh-channel check.
-The resulting innovation is therefore threefold: it exposes a hidden perfect-SNR assumption in adaptive SwinJSCC, converts it into an explicit SNR-mismatch risk, and evaluates the resulting robustness using both local bounded mismatch and full off-diagonal stress-test metrics.
+To the best of our knowledge, this true-SNR/estimated-SNR decoupling and the resulting SNR-mismatch matrix evaluation have not been systematically studied for SwinJSCC. The resulting innovation is therefore threefold: it exposes a hidden perfect-SNR assumption in adaptive SwinJSCC, converts it into an explicit SNR-mismatch risk, and evaluates the resulting robustness using both local bounded mismatch and full off-diagonal stress-test metrics.
 
 \section{System Model and Problem Formulation}
 
@@ -63,7 +63,7 @@ where $\mathbf{n}=\mathbf{n}_{\rm R}+j\mathbf{n}_{\rm I}$ and
 \mathcal{N}\!\left(0,\frac{1}{2\cdot10^{\gamma/10}}\mathbf{I}\right).
 \label{eq:noise}
 \end{equation}
-The total complex noise power is therefore $1/10^{\gamma/10}$. The decoder reconstructs
+For each unit-power complex channel symbol, $\mathbb{E}[|n_k|^2]=1/10^{\gamma/10}$ because the real and imaginary components each have half of the complex variance. The decoder reconstructs
 \begin{equation}
 \hat{\mathbf{x}}=G_{\theta}(\mathbf{y},\hat{\gamma}).
 \label{eq:decoder}
@@ -110,6 +110,7 @@ e\sim\mathcal{U}[-\Delta,\Delta],\quad
 \hat{\gamma}=\mathrm{clip}(\gamma+e,\gamma_{\min},\gamma_{\max}).
 \label{eq:ua_sampling}
 \end{equation}
+This bounded uniform-in-dB model is a controllable stress model for SNR-estimation error rather than a pilot-derived estimator model. Estimator-specific error laws, such as Gaussian SNR errors whose variance depends on pilot length, are left as future extensions.
 For a mini-batch $\mathcal{B}$, the empirical objective is
 \begin{equation}
 \widehat{\mathcal{R}}_{\rm UA}(\theta)=
@@ -120,21 +121,24 @@ d\!\left(G_{\theta}(T_{\gamma_i}(F_{\theta}(\mathbf{x}_i,\hat{\gamma}_i,C)),\hat
 \end{equation}
 When $\Delta=0$, this reduces to perfect-SNR fine-tuning. When $\Delta>0$, the training distribution covers a neighborhood of plausible SNR estimates and therefore optimizes an empirical approximation of the mismatch risk in \eqref{eq:risk_mismatch}, rather than the degenerate perfect-SNR risk in \eqref{eq:risk_perfect}.
 
-The implementation also supports a robust auxiliary loss using $K$ estimated SNR samples for the same true SNR. Let
-\begin{equation}
-\ell_k=d\!\left(G_{\theta}(T_{\gamma}(F_{\theta}(\mathbf{x},\hat{\gamma}_k,C)),\hat{\gamma}_k),\mathbf{x}\right),
-\quad k=1,\ldots,K .
-\label{eq:sample_loss}
-\end{equation}
-The robust loss is
-\begin{equation}
+The implementation also supports a robust auxiliary loss using $K$ estimated SNR samples for the same true SNR. For sample $k$,
+\begin{align}
+\hat{\mathbf{x}}_k
+&=G_{\theta}(T_{\gamma}(F_{\theta}(\mathbf{x},\hat{\gamma}_k,C)),\hat{\gamma}_k), \label{eq:xhat_k}\\
+\ell_k&=d(\hat{\mathbf{x}}_k,\mathbf{x}),\qquad k=1,\ldots,K . \label{eq:sample_loss}
+\end{align}
+The auxiliary robust loss is
+\begin{align}
 \mathcal{L}_{\rm rob}
-=\frac{1}{K}\sum_{k=1}^{K}\ell_k
+&=\bar{\ell}
 +\lambda_{\rm tail}\,\mathrm{Top}_{1-\alpha}(\{\ell_k\}_{k=1}^{K})
-+\lambda_{\rm cons}\frac{1}{K-1}\sum_{k=2}^{K}\|\hat{\mathbf{x}}_k-\hat{\mathbf{x}}_1\|_1 ,
-\label{eq:robust_loss}
-\end{equation}
-where $\mathrm{Top}_{1-\alpha}(\cdot)$ averages the largest $\lceil K(1-\alpha)\rceil$ losses. This auxiliary form is used only as a robustness check in this letter; the central comparison is the effect of the SNR-error width $\Delta$.
++\lambda_{\rm cons}\,\mathcal{C}_{\rm cons}, \label{eq:robust_loss}\\
+\bar{\ell}
+&=\frac{1}{K}\sum_{k=1}^{K}\ell_k,\qquad
+\mathcal{C}_{\rm cons}=\frac{1}{K-1}\sum_{k=2}^{K}\|\hat{\mathbf{x}}_k-\hat{\mathbf{x}}_1\|_1 .
+\label{eq:consistency}
+\end{align}
+Here $\mathrm{Top}_{1-\alpha}(\cdot)$ averages the largest $\lceil K(1-\alpha)\rceil$ losses. This auxiliary form is used only as a robustness check in this letter; the central comparison is the effect of the SNR-error width $\Delta$.
 
 If the end-to-end reconstruction map and distortion are locally Lipschitz with respect to $e$, then for some constant $K_{\theta}$,
 \begin{equation}
@@ -248,9 +252,13 @@ Method & Matched & Off-diag. & Worst & Off. gain & Off. MS-dB\\
 
 The auxiliary variants in Table~\ref{tab:auxiliary} show that tail and consistency terms provide additional tail-oriented operating points, but they do not replace the simpler D3 result as the central average-robustness setting. For example, Tail+Cons-UA improves worst-case PSNR by \TailConsWorstGain{} dB, and the stronger tail setting reaches a \TailLtOneWorstGain{} dB worst-case gain. Table~\ref{tab:rayleigh} reports an additional Rayleigh check. The implemented Rayleigh channel applies symbol-level fading coefficients and AWGN noise, with no explicit receiver-side CSI equalization. The SNR decoupling protocol follows the AWGN setting: $\gamma$ controls the physical channel noise and $\hat{\gamma}$ controls Channel ModNet. The result is a preliminary channel check, not a comprehensive fading-channel generalization claim.
 
+\subsection{Scope and Remaining Controls}
+
+The current evidence is restricted to CIFAR10, $32\times32$ images, and a single bandwidth setting $C=32$. It also reports one training run per method, so confidence intervals and run-to-run variability are not available. The D0 result is included as a perfect-SNR fine-tuning sanity check, but a strict equal-budget D0 control would still strengthen the fairness analysis. Further controls should include a no-SNR-conditioning ablation, a no-Channel-ModNet checkpoint if compatible weights are available, and a noisy-SNR-embedding baseline that perturbs only the conditioning pathway without changing the physical channel. These experiments would help isolate whether the robustness originates from reduced dependence on SNR conditioning, from broader latent regularization, or from the proposed true/estimated SNR decoupling itself.
+
 \section{Conclusion}
 
-This letter revisits adaptive SwinJSCC under SNR estimation mismatch. By decoupling the true physical SNR from the estimated SNR used by Channel ModNet, UA training aligns the training objective with bounded SNR errors. Perfect-SNR fine-tuning provides negligible off-diagonal improvement, whereas UA-D3 improves off-diagonal PSNR by 1.92 dB with only 0.09 dB matched-SNR loss on CIFAR10/AWGN/C=32. Wider perturbations, random SNR conditioning, and auxiliary robust losses expose controllable robustness--fidelity and average--tail trade-offs. Future work will extend the evaluation to high-resolution images, rate adaptation, and broader fading-channel conditions.
+This letter revisits adaptive SwinJSCC under SNR estimation mismatch. By decoupling the true physical SNR from the estimated SNR used by Channel ModNet, UA training aligns the training objective with bounded SNR errors. Perfect-SNR fine-tuning provides negligible off-diagonal improvement, whereas UA-D3 improves off-diagonal PSNR by 1.92 dB with only 0.09 dB matched-SNR loss on CIFAR10/AWGN/C=32. Wider perturbations, random SNR conditioning, and auxiliary robust losses expose controllable robustness--fidelity and average--tail trade-offs. Future work will extend the evaluation to high-resolution images, rate adaptation, repeated runs, estimator-driven SNR-error distributions, and the conditioning ablations identified above.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}

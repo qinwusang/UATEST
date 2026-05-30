@@ -123,3 +123,21 @@
 - Artifacts produced: updated manuscript, generated Fig. 3/Fig. 4 assets and wrappers, updated trade-off rows/metrics, corrected bibliography, data manifest, README, and task packet.
 - Verification run: `python latex\generate_figures.py`; `python -m py_compile latex\generate_figures.py`; abstract/citation/input check; forbidden-string search; SVG gain-label scan; `git diff --check -- latex figures plan`.
 - Remaining risk: local `pdflatex`/`bibtex` are unavailable, so page count and final PDF layout must be checked in a TeX environment.
+
+## 2026-05-30 - Weakness Response Revision
+
+- Status: completed.
+- User request: respond to identified weaknesses on novelty, auxiliary robust loss clarity, notation/noise details, missing related work, and experiment-scope limitations.
+- Stage: S1/S2/S5, evidence-driven manuscript revision and technical consistency pass.
+- Task packet: `plan/task-packets/2026-05-30-review-weakness-response.md`.
+- Main changes: `latex/main.tex` now explicitly positions novelty as problem formulation/evaluation protocol rather than a new backbone; adds DeepJSCC-l++ and domain-randomization positioning; clarifies per-complex-symbol noise power; rewrites the robust auxiliary loss into complete sub-equations; and adds a scope/control-baseline subsection.
+- Reference update: added DeepJSCC-l++ as an adaptive/robust JSCC reference with DOI metadata.
+
+### Capability-use audit
+
+- Required skills: `paper-orchestration`, evidence-driven manuscript revision, LaTeX output checks.
+- Skills actually used: `paper-orchestration` plus local LaTeX/source verification.
+- Inputs consumed: reviewer weakness list, `latex/main.tex`, `latex/references.bib`, existing evidence map, and web-checked related-work metadata.
+- Inputs not used and why: no new experiment CSVs were consumed because the request concerned manuscript weaknesses and missing future controls rather than new completed results.
+- Artifacts produced: updated manuscript, BibTeX entry, README/evidence/progress updates, and task packet.
+- Verification run: `python -m py_compile latex\generate_figures.py`; abstract/input/citation check; forbidden-string search; `git diff --check` on edited manuscript and planning files. Local TeX compilation remains unavailable.

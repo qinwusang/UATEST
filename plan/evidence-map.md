@@ -104,6 +104,12 @@ These derived values are computed from E5, E6, and E6b.
 - Supports: the paper can position bounded SNR perturbation training as a communication-specific instance of training over nuisance variables or deployment shifts.
 - Boundary: the manuscript should not claim to solve general domain generalization; the nuisance variable is specifically the mismatch between true physical SNR and estimated modulation SNR.
 
+## Source E11: Adaptive/robust JSCC positioning
+
+- Source: Bian, Shao, and Gunduz, DeepJSCC-l++, IEEE GLOBECOM 2023, DOI 10.1109/GLOBECOM54140.2023.10436878.
+- Supports: prior DeepJSCC variants already study robustness and bandwidth-adaptive wireless image transmission; this manuscript should position its novelty as the explicit true-SNR/estimated-SNR mismatch formulation for SwinJSCC, not as general robust JSCC from scratch.
+- Boundary: do not claim prior adaptive JSCC assumes no channel uncertainty in general; the specific gap is systematic decoupled `gamma`/`gamma_hat` training and evaluation for SwinJSCC Channel ModNet.
+
 ## Current Evidence Gaps
 
 - [TODO-RUN] matched-only fine-tuning baseline.
@@ -119,5 +125,6 @@ These derived values are computed from E5, E6, and E6b.
 - NTSCC semantic communication: Dai et al., IEEE JSAC 2022, DOI 10.1109/JSAC.2022.3180802.
 - DeepSC semantic communication: Xie et al., IEEE TSP 2021, DOI 10.1109/TSP.2021.3071210.
 - SwinJSCC: Yang et al., IEEE TCCN 2025, vol. 11, no. 1, pp. 90--104, DOI 10.1109/TCCN.2024.3424842.
+- DeepJSCC-l++: Bian, Shao, and Gunduz, IEEE GLOBECOM 2023, DOI 10.1109/GLOBECOM54140.2023.10436878.
 - Domain randomization: Tobin et al., IEEE/RSJ IROS 2017, pp. 23--30, DOI 10.1109/IROS.2017.8202133.
 - Domain generalization via adversarial augmentation: Volpi et al., NeurIPS 2018, vol. 31, pp. 5334--5344.
