@@ -53,7 +53,7 @@
   - `mismatch_results/rayleigh-original-eval_*_msssim_cpu.csv`
   - `mismatch_results/rayleigh-ua-d3-eval_*_EP10_msssim_cpu.csv`
 - Supports: Delta-width trade-off, independent random SNR conditioning baseline, and a Rayleigh channel check.
-- Boundary: the current manuscript uses the available D0 CSV as the Perfect-SNR FT baseline and does not state an epoch-count claim for D0 in the paper body.
+- Boundary: per user instruction, the current manuscript treats the available D0 CSV as the same-budget Perfect-SNR FT baseline. Fixed conservative SNR-conditioning results are not present in `mismatch_results/` and therefore are discussed only as a future control.
 
 ## Source E6b: Robust variant checkpoint results
 
@@ -73,6 +73,7 @@
 - UA-D3 bounded off-diagonal (`tau=3 dB`) PSNR gain over original: +1.09 dB.
 - UA-D6 off-diagonal PSNR gain over original: +3.11 dB; matched PSNR change: -0.36 dB.
 - Random-hat off-diagonal PSNR gain over original: +4.06 dB; matched PSNR change: -1.04 dB.
+- Fixed conservative SNR-conditioning baseline: no verified CSV currently available; do not report numeric claims until generated.
 - Rayleigh UA-D3 off-diagonal PSNR gain over Rayleigh original: +1.50 dB.
 - Largest observed PSNR gain: +4.7989 dB at `SNR_true=1`, `SNR_hat=7`.
 - Average off-diagonal MS-SSIM(dB): original 15.9684 dB, UA 17.9652 dB, improvement 1.9969 dB.
@@ -126,5 +127,6 @@ These derived values are computed from E5, E6, and E6b.
 - DeepSC semantic communication: Xie et al., IEEE TSP 2021, DOI 10.1109/TSP.2021.3071210.
 - SwinJSCC: Yang et al., IEEE TCCN 2025, vol. 11, no. 1, pp. 90--104, DOI 10.1109/TCCN.2024.3424842.
 - DeepJSCC-l++: Bian, Shao, and Gunduz, IEEE GLOBECOM 2023, DOI 10.1109/GLOBECOM54140.2023.10436878.
+- Imperfect channel knowledge / link adaptation background: Medard, IEEE TIT 2000, DOI 10.1109/18.841172; Goldsmith and Chua, IEEE TC 1997, DOI 10.1109/26.634685.
 - Domain randomization: Tobin et al., IEEE/RSJ IROS 2017, pp. 23--30, DOI 10.1109/IROS.2017.8202133.
 - Domain generalization via adversarial augmentation: Volpi et al., NeurIPS 2018, vol. 31, pp. 5334--5344.

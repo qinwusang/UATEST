@@ -141,3 +141,10 @@
 - Inputs not used and why: no new experiment CSVs were consumed because the request concerned manuscript weaknesses and missing future controls rather than new completed results.
 - Artifacts produced: updated manuscript, BibTeX entry, README/evidence/progress updates, and task packet.
 - Verification run: `python -m py_compile latex\generate_figures.py`; abstract/input/citation check; forbidden-string search; `git diff --check` on edited manuscript and planning files. Local TeX compilation remains unavailable.
+
+## 2026-05-30 - D0 and Augmentation-Control Clarification
+
+- Status: completed.
+- User request: treat D0 as the same-budget fine-tuning baseline; strengthen the response to the criticism that the method is only naive SNR data augmentation/domain randomization; add traditional communication SNR/CSI mismatch context.
+- Main changes: `latex/main.tex` now states that D0, D1, D3, D6, and Random-hat use the same fine-tuning budget; removes the D0 sanity-check caveat; adds conventional imperfect channel knowledge/link adaptation references; explains why Random-hat is not a recommended method despite strong stress-test robustness; and lists fixed conservative SNR conditioning as a future control because no verified Fixed-SNR CSV is available locally.
+- Verification note: manuscript claims about Fixed-SNR remain non-numeric until a verified CSV exists under `mismatch_results/`.

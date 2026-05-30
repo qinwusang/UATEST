@@ -25,7 +25,7 @@ The generator expects CPU MS-SSIM CSV files under `mismatch_results/`.
 Required for the current draft:
 
 - `original_cifar10_awgn_C32_msssim_cpu.csv`
-- `ua-d0-eval_..._EP5_msssim_cpu.csv`
+- `ua-d0-eval_..._EP5_msssim_cpu.csv` (treated as the D0 equal-budget fine-tuning result for this manuscript)
 - `ua-d1-eval_..._EP10_msssim_cpu.csv`
 - `ua_delta3_cifar10_awgn_C32_msssim_cpu.csv`
 - `ua-d6-eval_..._EP10_msssim_cpu.csv`
@@ -33,7 +33,7 @@ Required for the current draft:
 - Tail/Consistency auxiliary CSV files
 - Rayleigh original and UA-D3 CPU CSV files
 
-The current manuscript uses the available D0 fine-tuning CSV as the Perfect-SNR FT baseline, reported as `D0` without making an epoch-count claim in the paper body.
+The current manuscript uses the available D0 fine-tuning CSV as the Perfect-SNR FT baseline with the same fine-tuning-budget interpretation as the other fine-tuned variants.
 
 ## Regenerate Assets
 
