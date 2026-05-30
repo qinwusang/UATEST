@@ -96,7 +96,13 @@ These derived values are computed from E5, E6, and E6b.
 
 - Paths: `figures/heatmap-plan.md`, `figures/reconstruction-plan.md`
 - Supports: planned Fig. 2 original mismatch heatmap, Fig. 3 UA gain heatmap, and Fig. 4 qualitative reconstruction comparison.
-- Boundary: LaTeX Fig. 2--4 now use generated data plots; a qualitative reconstruction figure still requires a visualization rerun to avoid checkpoint mixing.
+- Boundary: LaTeX Fig. 2--3 use generated data plots. LaTeX Fig. 4 now uses the only available `mismatch_vis_cifar10/` export as a qualitative reconstruction example, not as an Original-vs-UA method comparison. A method-separated qualitative comparison still requires rerunning visualizations into separate directories.
+
+## Source E10: Robustness and domain-randomization positioning
+
+- Sources: Tobin et al., IROS 2017, DOI 10.1109/IROS.2017.8202133; Volpi et al., NeurIPS 2018.
+- Supports: the paper can position bounded SNR perturbation training as a communication-specific instance of training over nuisance variables or deployment shifts.
+- Boundary: the manuscript should not claim to solve general domain generalization; the nuisance variable is specifically the mismatch between true physical SNR and estimated modulation SNR.
 
 ## Current Evidence Gaps
 
@@ -104,7 +110,7 @@ These derived values are computed from E5, E6, and E6b.
 - [TODO-RUN] conservative SNR conditioning baseline.
 - [TODO-RUN] no-SA/no-Channel-ModNet baseline if compatible checkpoint exists.
 - [TODO-RUN] repeated seeds.
-- [TODO-FIG] qualitative reconstruction figure.
+- [TODO-FIG] method-separated Original-vs-UA qualitative reconstruction figure.
 
 ## Added Reference Evidence
 
@@ -113,3 +119,5 @@ These derived values are computed from E5, E6, and E6b.
 - NTSCC semantic communication: Dai et al., IEEE JSAC 2022, DOI 10.1109/JSAC.2022.3180802.
 - DeepSC semantic communication: Xie et al., IEEE TSP 2021, DOI 10.1109/TSP.2021.3071210.
 - SwinJSCC: Yang et al., IEEE TCCN 2025, vol. 11, no. 1, pp. 90--104, DOI 10.1109/TCCN.2024.3424842.
+- Domain randomization: Tobin et al., IEEE/RSJ IROS 2017, pp. 23--30, DOI 10.1109/IROS.2017.8202133.
+- Domain generalization via adversarial augmentation: Volpi et al., NeurIPS 2018, vol. 31, pp. 5334--5344.

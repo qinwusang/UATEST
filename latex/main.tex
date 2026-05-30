@@ -29,9 +29,13 @@ Deep joint source-channel coding, imperfect SNR estimation, semantic communicati
 
 \IEEEPARstart{D}{eep} joint source-channel coding (Deep JSCC) directly maps source samples to channel symbols and can avoid the sharp threshold behavior of separate source and channel coding under channel variation \cite{shannon1948mathematical,cover2006elements,bourtsoulatze2019deepjscc}. For wireless image transmission, recent Deep JSCC systems have incorporated feedback, bandwidth agility, OFDM transmission, attention modules, and nonlinear transform coding \cite{kurka2020deepjsccf,kurka2021bandwidth,yang2021ofdm,xu2022attention,dai2022ntscc}. These developments are closely related to semantic communications, where the recovered signal quality is optimized directly rather than through bit-level recovery alone \cite{xie2020initial,xie2021semantic}.
 
+\textit{Positioning.}
+The present work is closer to robustness and domain-randomization methodology than to backbone design. Classical DeepJSCC establishes the end-to-end analog transmission paradigm \cite{bourtsoulatze2019deepjscc}, while adaptive variants learn to condition the encoder and decoder on channel state, rate, or feedback information \cite{kurka2020deepjsccf,kurka2021bandwidth,xu2022attention}. SwinJSCC improves this adaptive image-transmission pipeline through a Swin Transformer architecture and modulation networks \cite{liu2021swin,yang2024swinjscc}. In parallel, domain randomization trains neural systems over nuisance variations so that deployment shifts are already represented during optimization \cite{tobin2017domain,volpi2018generalizing}. Our setting is a communication-specific instance of this idea: the nuisance variable is not image style or simulated geometry, but the gap between the true physical SNR and the estimated SNR consumed by Channel ModNet.
+
 SwinJSCC extends adaptive Deep JSCC by combining a Swin Transformer backbone with modulation networks that condition latent features on the channel SNR and bandwidth ratio \cite{liu2021swin,yang2024swinjscc}. Existing evaluation, however, normally follows a perfect-SNR convention: the SNR used by Channel ModNet is the same value that determines physical channel noise. In an AWGN setting, the practical uncertainty is more precisely an SNR estimation mismatch. The estimated SNR may be biased by pilot noise, delayed feedback, or prediction error, causing the modulation network to allocate features for a different channel quality than the transmitted symbols actually experience.
 
 This letter studies this SNR-mismatched setting. The model architecture is unchanged; only the SNR interface is separated into the true physical SNR $\gamma$ and the estimated modulation SNR $\hat{\gamma}$. The contribution is not a new Transformer backbone, but a training and evaluation protocol for imperfect SNR estimation. We formulate the corresponding risk, introduce uncertainty-aware (UA) training with bounded SNR perturbations, and compare it with perfect-SNR fine-tuning, wider perturbations, independent random SNR conditioning, and a Rayleigh-channel check.
+The resulting innovation is therefore threefold: it exposes a hidden perfect-SNR assumption in adaptive SwinJSCC, converts it into an explicit SNR-mismatch risk, and evaluates the resulting robustness using both local bounded mismatch and full off-diagonal stress-test metrics.
 
 \section{System Model and Problem Formulation}
 
@@ -200,13 +204,17 @@ Method & Matched & Bound. off & Full off & Worst & $\Delta$ bound. & $\Delta$ fu
 \end{tabular}
 \end{table*}
 
-\input{figures/fig3_delta_tradeoff}
+\input{figures/fig3_tradeoff_magnitude}
 
-Fig.~\ref{fig:delta-tradeoff} separates the metric trends that are compressed in Table~\ref{tab:tradeoff}. Bounded UA training first improves local mismatch robustness with little matched-SNR loss at D3, then moves toward stronger full off-diagonal and worst-case performance at D6. Random-hat gives the highest off-diagonal and worst-case scores because it makes $\hat{\gamma}$ nearly independent of $\gamma$ during training. It is therefore an upper-robustness reference rather than the recommended deployment setting, especially because it incurs a \RandomDiagGain{} dB matched-PSNR loss.
+\subsection{Result Analysis}
 
-\input{figures/fig4_mismatch_magnitude}
+Fig.~\ref{fig:tradeoff-magnitude} separates two questions that Table~\ref{tab:tradeoff} compresses. The left panel asks how matched fidelity, full off-diagonal robustness, and worst-case robustness move as the training policy changes. Bounded UA training first improves local mismatch robustness with little matched-SNR loss at D3, then moves toward stronger full off-diagonal and worst-case performance at D6. The right panel asks where these gains occur. Small 3 dB mismatches correspond to the local error range modeled by UA-D3, whereas 9--12 dB entries represent severe off-design stress tests. This distinction matters because a method can be very strong under extreme off-diagonal mismatch while being less attractive for normal bounded SNR-estimation errors.
 
-Fig.~\ref{fig:mismatch-magnitude} further groups the matrix entries by $|\hat{\gamma}-\gamma|$. The figure clarifies why full off-diagonal performance should be interpreted as a stress test: the largest gains occur at high mismatch magnitudes, whereas the $\tau=3$ dB metric isolates the local regime that bounded SNR estimation is meant to model.
+Random-hat is the clearest example. It gives the highest full off-diagonal and worst-case scores because it makes $\hat{\gamma}$ nearly independent of $\gamma$ during training and therefore discourages the network from relying strongly on the SNR-conditioning path. This is useful as an upper-robustness reference, but it is not the recommended deployment setting: it does not correspond to a bounded SNR-estimation model and incurs a \RandomDiagGain{} dB matched-PSNR loss. In contrast, UA-D3 is the practical operating point emphasized here because its training support matches the $\tau=3$ dB local metric and preserves matched-SNR reconstruction quality.
+
+\input{figures/fig4_qualitative_recon}
+
+Fig.~\ref{fig:qualitative-recon} adds a visual check for representative SNR-mismatch pairs. It is not used for method ranking; the quantitative claims come from the complete mismatch matrices. Its purpose is to make the matrix results interpretable at the image level by showing how a mismatch setting changes reconstructed CIFAR10 grids rather than only reporting aggregate PSNR.
 
 \subsection{Auxiliary Robustness and Rayleigh Check}
 
