@@ -148,3 +148,9 @@
 - User request: treat D0 as the same-budget fine-tuning baseline; strengthen the response to the criticism that the method is only naive SNR data augmentation/domain randomization; add traditional communication SNR/CSI mismatch context.
 - Main changes: `latex/main.tex` now states that D0, D1, D3, D6, and Random-hat use the same fine-tuning budget; removes the D0 sanity-check caveat; adds conventional imperfect channel knowledge/link adaptation references; explains why Random-hat is not a recommended method despite strong stress-test robustness; and lists fixed conservative SNR conditioning as a future control because no verified Fixed-SNR CSV is available locally.
 - Verification note: manuscript claims about Fixed-SNR remain non-numeric until a verified CSV exists under `mismatch_results/`.
+
+## 2026-05-30 - Risk Notation and Scope Polish
+
+- Status: completed.
+- User request: fix risk-expression precision, avoid blunt single-run wording, add complexity/latency note, and list encoder-only/decoder-only mismatch as a missing ablation.
+- Main changes: `latex/main.tex` now defines the end-to-end map `H_theta(x,gamma,gammahat)` and rewrites the perfect/mismatch risks using it; adds an inference/training cost note; clarifies that the Lipschitz argument is qualitative; replaces the explicit single-run limitation with evaluation-mean wording; and adds encoder-only/decoder-only mismatch tests to future controls.

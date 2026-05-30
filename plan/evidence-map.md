@@ -25,7 +25,7 @@
 
 - Path: `net/channel.py`
 - Supports: `complex_normalize` uses `mean(x ** 2) * 2`; AWGN samples independent real and imaginary noise components with standard deviation `sqrt(1/(2*10^(SNR/10)))`.
-- Allowed claim: after real-to-complex pairing, the average complex symbol power is normalized and the total complex noise power is `1/10^(SNR/10)`.
+- Allowed claim: after real-to-complex pairing, the average complex symbol power is normalized; for each unit-power complex channel symbol, the noise has `E[|n_k|^2]=1/10^(SNR/10)` with equal half-variance real and imaginary components.
 
 ## Source E4: MS-SSIM evaluation
 

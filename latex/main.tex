@@ -31,6 +31,7 @@ Deep joint source-channel coding, imperfect SNR estimation, semantic communicati
 
 \textit{Positioning.}
 The present work is closer to robustness and domain-randomization methodology than to backbone design. Classical DeepJSCC establishes the end-to-end analog transmission paradigm \cite{bourtsoulatze2019deepjscc}, while adaptive variants learn to condition the encoder and decoder on channel state, rate, or feedback information \cite{kurka2020deepjsccf,kurka2021bandwidth,xu2022attention,bian2023deepjscclpp}. SwinJSCC improves this adaptive image-transmission pipeline through a Swin Transformer architecture and modulation networks \cite{liu2021swin,yang2024swinjscc}. In parallel, domain randomization trains neural systems over nuisance variations so that deployment shifts are already represented during optimization \cite{tobin2017domain,volpi2018generalizing}. Our setting is a communication-specific instance of this idea: the nuisance variable is not image style or simulated geometry, but the gap between the true physical SNR and the estimated SNR consumed by Channel ModNet.
+Viewed this way, SNR-agnostic DeepJSCC models, SNR-conditioned adaptive models, and random-SNR training occupy different points on a conditioning spectrum. This letter keeps the SwinJSCC architecture and conditioning path intact, but tests whether the conditioning value itself is reliable.
 
 SwinJSCC extends adaptive Deep JSCC by combining a Swin Transformer backbone with modulation networks that condition latent features on the channel SNR and bandwidth ratio \cite{liu2021swin,yang2024swinjscc}. Existing evaluation, however, normally follows a perfect-SNR convention: the SNR used by Channel ModNet is the same value that determines physical channel noise. In an AWGN setting, the practical uncertainty is more precisely an SNR estimation mismatch. The estimated SNR may be biased by pilot noise, delayed feedback, or prediction error, causing the modulation network to allocate features for a different channel quality than the transmitted symbols actually experience.
 
@@ -68,6 +69,12 @@ For each unit-power complex channel symbol, $\mathbb{E}[|n_k|^2]=1/10^{\gamma/10
 \hat{\mathbf{x}}=G_{\theta}(\mathbf{y},\hat{\gamma}).
 \label{eq:decoder}
 \end{equation}
+For compact notation, define the end-to-end reconstruction map
+\begin{equation}
+H_{\theta}(\mathbf{x},\gamma,\hat{\gamma})
+=G_{\theta}(T_{\gamma}(F_{\theta}(\mathbf{x},\hat{\gamma},C)),\hat{\gamma}).
+\label{eq:end_to_end}
+\end{equation}
 
 The perfect-SNR assumption is
 \begin{equation}
@@ -79,7 +86,7 @@ which corresponds to the risk
 \mathcal{R}_{\rm p}(\theta)=
 \mathbb{E}_{\mathbf{x},\gamma}
 \!\left[
-d\!\left(G_{\theta}(T_{\gamma}(F_{\theta}(\mathbf{x},\gamma,C)),\gamma),\mathbf{x}\right)
+d\!\left(H_{\theta}(\mathbf{x},\gamma,\gamma),\mathbf{x}\right)
 \right].
 \label{eq:risk_perfect}
 \end{equation}
@@ -93,7 +100,7 @@ and the deployment risk becomes
 \mathcal{R}_{\rm m}(\theta)=
 \mathbb{E}_{\mathbf{x},\gamma,e}
 \!\left[
-d\!\left(G_{\theta}(T_{\gamma}(F_{\theta}(\mathbf{x},\hat{\gamma},C)),\hat{\gamma}),\mathbf{x}\right)
+d\!\left(H_{\theta}(\mathbf{x},\gamma,\hat{\gamma}),\mathbf{x}\right)
 \right].
 \label{eq:risk_mismatch}
 \end{equation}
@@ -139,6 +146,7 @@ The auxiliary robust loss is
 \label{eq:consistency}
 \end{align}
 Here $\mathrm{Top}_{1-\alpha}(\cdot)$ averages the largest $\lceil K(1-\alpha)\rceil$ losses. This auxiliary form is used only as a robustness check in this letter; the central comparison is the effect of the SNR-error width $\Delta$.
+The proposed UA-D$\Delta$ path does not add inference modules or extra channel uses; at test time it only consumes one estimated SNR scalar as in the original Channel ModNet. Training cost is unchanged for the single-sample UA objective in \eqref{eq:ua_risk}, while the optional robust auxiliary loss scales with the number $K$ of sampled estimates and is not required for the main D3 result.
 
 If the end-to-end reconstruction map and distortion are locally Lipschitz with respect to $e$, then for some constant $K_{\theta}$,
 \begin{equation}
@@ -147,7 +155,7 @@ If the end-to-end reconstruction map and distortion are locally Lipschitz with r
 \le K_{\theta}|e|.
 \label{eq:lipschitz}
 \end{equation}
-This observation motivates training over an error neighborhood but does not imply pointwise dominance at every SNR pair.
+This observation motivates training over an error neighborhood but does not estimate $K_{\theta}$ for the trained network and does not imply pointwise dominance at every SNR pair.
 
 \section{Experimental Results}
 
@@ -255,7 +263,7 @@ The auxiliary variants in Table~\ref{tab:auxiliary} show that tail and consisten
 
 \subsection{Scope and Remaining Controls}
 
-The current evidence is restricted to CIFAR10, $32\times32$ images, and a single bandwidth setting $C=32$. It also reports one training run per method, so confidence intervals and run-to-run variability are not available. Further controls should include a fixed conservative SNR-conditioning baseline, a no-SNR-conditioning ablation, a no-Channel-ModNet checkpoint if compatible weights are available, and a noisy-SNR-embedding baseline that perturbs only the conditioning pathway without changing the physical channel. These experiments would help isolate whether the robustness originates from reduced dependence on SNR conditioning, from broader latent regularization, or from the proposed true/estimated SNR decoupling itself.
+The current evidence is restricted to CIFAR10, $32\times32$ images, and a single bandwidth setting $C=32$. The tables report mean performance over the evaluation set; seed-level confidence intervals are left to an extended study. Further controls should include a fixed conservative SNR-conditioning baseline, a no-SNR-conditioning ablation, a no-Channel-ModNet checkpoint if compatible weights are available, a noisy-SNR-embedding baseline that perturbs only the conditioning pathway without changing the physical channel, and encoder-only versus decoder-only SNR-mismatch tests. These experiments would help isolate whether the robustness originates from reduced dependence on SNR conditioning, from broader latent regularization, or from the proposed true/estimated SNR decoupling itself.
 
 \section{Conclusion}
 
