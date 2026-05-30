@@ -111,6 +111,12 @@ These derived values are computed from E5, E6, and E6b.
 - Supports: prior DeepJSCC variants already study robustness and bandwidth-adaptive wireless image transmission; this manuscript should position its novelty as the explicit true-SNR/estimated-SNR mismatch formulation for SwinJSCC, not as general robust JSCC from scratch.
 - Boundary: do not claim prior adaptive JSCC assumes no channel uncertainty in general; the specific gap is systematic decoupled `gamma`/`gamma_hat` training and evaluation for SwinJSCC Channel ModNet.
 
+## Source E12: Classical mismatch and side-information background
+
+- Sources: Merhav et al., IEEE TIT 1994, DOI 10.1109/18.340470; Lapidoth and Shamai, IEEE TIT 2002, DOI 10.1109/18.995557.
+- Supports: imperfect or mismatched receiver information is a classical communication concern; the manuscript can connect SNR-conditioned JSCC robustness to this broader mismatch literature.
+- Boundary: do not claim the proposed neural training objective follows directly from classical mismatched-decoding capacity results; the references provide background motivation and positioning.
+
 ## Current Evidence Gaps
 
 - [TODO-RUN] matched-only fine-tuning baseline.
@@ -128,5 +134,6 @@ These derived values are computed from E5, E6, and E6b.
 - SwinJSCC: Yang et al., IEEE TCCN 2025, vol. 11, no. 1, pp. 90--104, DOI 10.1109/TCCN.2024.3424842.
 - DeepJSCC-l++: Bian, Shao, and Gunduz, IEEE GLOBECOM 2023, DOI 10.1109/GLOBECOM54140.2023.10436878.
 - Imperfect channel knowledge / link adaptation background: Medard, IEEE TIT 2000, DOI 10.1109/18.841172; Goldsmith and Chua, IEEE TC 1997, DOI 10.1109/26.634685.
+- Classical mismatch and imperfect side information: Merhav et al., IEEE TIT 1994, DOI 10.1109/18.340470; Lapidoth and Shamai, IEEE TIT 2002, DOI 10.1109/18.995557.
 - Domain randomization: Tobin et al., IEEE/RSJ IROS 2017, pp. 23--30, DOI 10.1109/IROS.2017.8202133.
 - Domain generalization via adversarial augmentation: Volpi et al., NeurIPS 2018, vol. 31, pp. 5334--5344.

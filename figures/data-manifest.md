@@ -10,7 +10,7 @@ No fake figures are created in this draft pass. The current figure inventory is:
 | Fig. 4 | future regenerated visualization directories; `figures/reconstruction-plan.md` | Original image, original mismatch reconstruction, UA mismatch reconstruction | [TODO-FIG] needs rerun to avoid checkpoint mixing |
 | LaTeX Fig. 1 | `latex/figures/fig1_framework.tex` | Native TikZ framework diagram for IEEEtran draft | Created |
 | LaTeX Fig. 2 | `latex/figures/fig2_psnr_heatmaps.{pdf,png,svg}` | Original PSNR, UA-D3 PSNR, and UA-D3 minus original PSNR gain heatmaps | Created from real CSV via `latex/generate_figures.py` |
-| LaTeX Fig. 3 | `latex/figures/fig3_tradeoff_magnitude.{pdf,png,svg}` | Double-column figure: metric-level PSNR trade-off plus method-level mismatch magnitude gain curves | Created from real CSV via `latex/generate_figures.py` |
+| LaTeX Fig. 3 | `latex/figures/fig3_tradeoff_magnitude.{pdf,png,svg}` | Double-column figure: matched/bounded/full/worst metric-level trade-off plus method-level mismatch magnitude gain curves with local-mismatch shading | Created from real CSV via `latex/generate_figures.py` |
 | LaTeX Fig. 4 | `latex/figures/fig4_qualitative_recon.{pdf,png,svg}` | Representative CIFAR10 input/reconstruction grids under selected SNR mismatch cases | Created from existing `mismatch_vis_cifar10/` visualization export; qualitative only |
 | LaTeX legacy Fig. 3 | `latex/figures/fig3_delta_tradeoff.{pdf,png,svg}` | Single-column metric-level PSNR trade-off curve | Generated for traceability; not used by current `latex/main.tex` |
 | LaTeX legacy Fig. 4 | `latex/figures/fig4_mismatch_magnitude.{pdf,png,svg}` | Single-column method-level PSNR gain by mismatch magnitude | Generated for traceability; not used by current `latex/main.tex` |

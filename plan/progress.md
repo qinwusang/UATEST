@@ -154,3 +154,9 @@
 - Status: completed.
 - User request: fix risk-expression precision, avoid blunt single-run wording, add complexity/latency note, and list encoder-only/decoder-only mismatch as a missing ablation.
 - Main changes: `latex/main.tex` now defines the end-to-end map `H_theta(x,gamma,gammahat)` and rewrites the perfect/mismatch risks using it; adds an inference/training cost note; clarifies that the Lipschitz argument is qualitative; replaces the explicit single-run limitation with evaluation-mean wording; and adds encoder-only/decoder-only mismatch tests to future controls.
+
+## 2026-05-30 - Figure and Reproducibility Polish
+
+- Status: completed.
+- User request: specify missing ablations and auxiliary hyperparameters, clarify Rayleigh CSI/equalization details, add classical mismatch/CSI-mismatch context, and redraw the figures with more polished and distinguishable line styles.
+- Main changes: `latex/generate_figures.py` now redraws Fig. 3 with matched, bounded off-diagonal, full off-diagonal, and worst-case metric curves, adds D0 to mismatch-magnitude curves, and shades the local 3 dB mismatch region. `latex/main.tex` now specifies CIFAR10 train/test protocol, 10 fine-tuning epochs, auxiliary robust-loss hyperparameters, non-coherent Rayleigh interpretation, and fixed/no-conditioning/noisy-embedding/encoder-only/decoder-only future controls.

@@ -50,7 +50,7 @@ RAYLEIGH_RESULTS = [
 ]
 
 FIG3_METHODS = ["Original", "D0", "D1", "D3", "D6", "RandomHat"]
-FIG4_METHODS = ["D1", "D3", "D6", "RandomHat"]
+FIG4_METHODS = ["D0", "D1", "D3", "D6", "RandomHat"]
 MAGNITUDES = [3, 6, 9, 12]
 QUAL_CASES = [(1, 7), (4, 10), (13, 1)]
 
@@ -59,6 +59,7 @@ COLORS = {
     "bounded": "#0072B2",
     "off": "#009E73",
     "worst": "#D55E00",
+    "D0": "#777777",
     "D1": "#0072B2",
     "D3": "#D55E00",
     "D6": "#009E73",
@@ -387,19 +388,41 @@ def save_line_figure(fig: plt.Figure, stem: str) -> None:
 def draw_delta_tradeoff(ax: plt.Axes, primary: dict[str, dict[str, float]], labels: dict[str, str]) -> None:
     x = np.arange(len(FIG3_METHODS))
     series = [
-        ("Matched", [primary[k]["diag_psnr"] for k in FIG3_METHODS], "-", "o", COLORS["matched"]),
-        ("Full off.", [primary[k]["off_psnr"] for k in FIG3_METHODS], "--", "s", COLORS["off"]),
-        ("Worst", [primary[k]["worst_psnr"] for k in FIG3_METHODS], "-.", "^", COLORS["worst"]),
+        ("Matched", [primary[k]["diag_psnr"] for k in FIG3_METHODS], "-", "o", COLORS["matched"], 1.45),
+        (r"Bounded off. ($\tau=3$)", [primary[k]["bounded_psnr"] for k in FIG3_METHODS], ":", "D", COLORS["bounded"], 1.55),
+        ("Full off.", [primary[k]["off_psnr"] for k in FIG3_METHODS], "--", "s", COLORS["off"], 1.45),
+        ("Worst", [primary[k]["worst_psnr"] for k in FIG3_METHODS], "-.", "^", COLORS["worst"], 1.45),
     ]
-    for name, values, linestyle, marker, color in series:
-        ax.plot(x, values, label=name, linestyle=linestyle, marker=marker, linewidth=1.35, markersize=4.0, color=color)
+    for name, values, linestyle, marker, color, linewidth in series:
+        ax.plot(
+            x,
+            values,
+            label=name,
+            linestyle=linestyle,
+            marker=marker,
+            linewidth=linewidth,
+            markersize=4.2,
+            color=color,
+            markerfacecolor="white" if name != "Matched" else color,
+            markeredgewidth=0.9,
+        )
 
     tick_labels = [labels[k].replace("Perfect-SNR FT ", "").replace("Random-hat", "Rand.") for k in FIG3_METHODS]
     ax.set_xticks(x)
     ax.set_xticklabels(tick_labels, rotation=25, ha="right")
     ax.set_ylabel("PSNR (dB)")
-    ax.grid(True, alpha=0.28, linewidth=0.6)
-    ax.legend(fontsize=6.7, frameon=False, ncol=2)
+    ax.grid(True, which="major", alpha=0.28, linewidth=0.6)
+    ax.grid(True, which="minor", alpha=0.13, linewidth=0.35)
+    ax.minorticks_on()
+    ax.legend(
+        fontsize=6.15,
+        frameon=True,
+        framealpha=0.76,
+        facecolor="white",
+        edgecolor="none",
+        ncol=2,
+        loc="lower right",
+    )
     ax.set_title("(a) Robustness--fidelity trade-off", fontsize=9)
 
 
@@ -436,21 +459,41 @@ def magnitude_gain(df: pd.DataFrame, original: pd.DataFrame, magnitude: int) -> 
 def draw_mismatch_magnitude(ax: plt.Axes, data: dict[str, pd.DataFrame], labels: dict[str, str]) -> None:
     original = data["Original"]
     styles = {
+        "D0": {"linestyle": (0, (2, 2)), "marker": "s", "linewidth": 1.15, "color": COLORS["D0"]},
         "D1": {"linestyle": ":", "marker": "^", "linewidth": 1.35, "color": COLORS["D1"]},
-        "D3": {"linestyle": "-", "marker": "D", "linewidth": 1.9, "color": COLORS["D3"]},
-        "D6": {"linestyle": "-.", "marker": "v", "linewidth": 1.35, "color": COLORS["D6"]},
-        "RandomHat": {"linestyle": (0, (6, 3)), "marker": "x", "linewidth": 1.35, "color": COLORS["RandomHat"]},
+        "D3": {"linestyle": "-", "marker": "D", "linewidth": 2.05, "color": COLORS["D3"]},
+        "D6": {"linestyle": "-.", "marker": "v", "linewidth": 1.45, "color": COLORS["D6"]},
+        "RandomHat": {"linestyle": (0, (6, 3)), "marker": "x", "linewidth": 1.45, "color": COLORS["RandomHat"]},
     }
+    ax.axvspan(2.5, 3.5, color="#999999", alpha=0.12, linewidth=0)
     for key in FIG4_METHODS:
         values = [magnitude_gain(data[key], original, mag) for mag in MAGNITUDES]
-        ax.plot(MAGNITUDES, values, label=labels[key], markersize=4.2, **styles[key])
+        ax.plot(
+            MAGNITUDES,
+            values,
+            label=labels[key].replace("Perfect-SNR FT ", ""),
+            markersize=4.4,
+            markerfacecolor="white" if key != "RandomHat" else styles[key]["color"],
+            markeredgewidth=0.9,
+            **styles[key],
+        )
 
     ax.axhline(0, color="#555555", linewidth=0.75)
     ax.set_xticks(MAGNITUDES)
     ax.set_xlabel("SNR mismatch magnitude (dB)")
     ax.set_ylabel("PSNR gain over original (dB)")
-    ax.grid(True, alpha=0.28, linewidth=0.6)
-    ax.legend(fontsize=6.7, frameon=False)
+    ax.grid(True, which="major", alpha=0.28, linewidth=0.6)
+    ax.grid(True, which="minor", alpha=0.13, linewidth=0.35)
+    ax.minorticks_on()
+    ax.legend(
+        fontsize=6.15,
+        frameon=True,
+        framealpha=0.76,
+        facecolor="white",
+        edgecolor="none",
+        ncol=2,
+        loc="upper left",
+    )
     ax.set_title("(b) Robustness by mismatch magnitude", fontsize=9)
 
 
@@ -486,7 +529,7 @@ def plot_tradeoff_magnitude(primary: dict[str, dict[str, float]], data: dict[str
             "\\begin{figure*}[t]",
             "\\centering",
             "\\includegraphics[width=\\textwidth]{figures/fig3_tradeoff_magnitude}",
-            "\\caption{Complementary views of the robustness--fidelity trade-off. The left panel uses line styles to distinguish evaluation metrics across methods. The right panel uses line styles to distinguish methods and groups PSNR gains by absolute SNR mismatch magnitude.}",
+            "\\caption{Complementary views of the robustness--fidelity trade-off. The left panel uses line styles to distinguish matched, bounded off-diagonal, full off-diagonal, and worst-case metrics across methods. The right panel uses line styles to distinguish methods and groups PSNR gains by absolute SNR mismatch magnitude; the shaded region marks the local $3$ dB mismatch regime.}",
             "\\label{fig:tradeoff-magnitude}",
             "\\end{figure*}",
             "",
